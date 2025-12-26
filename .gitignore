@@ -1,9 +1,8 @@
 .vscode
 .venv
 .build
-dist
 run.bat
-Rest.mp3
-Work.mp3
-
-
+rest.mp3
+work.mp3
+__pycache__
+settings.json
