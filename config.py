@@ -1,7 +1,6 @@
 import json
-from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict
 
 
 class SettingsManager:
@@ -11,20 +10,19 @@ class SettingsManager:
             "window": {
                 "width": 336,
                 "height": 255,
-                "padxy": 5,  # в пикселях
+                "padxy": 5,
                 "padxy_s": 2,
-                "padxy_ss": 0,  # в info - между минутами и статусом
-                "entry_width": 5,  # в символах
+                "padxy_ss": 0,
+                "entry_width": 5,
                 "pad_x_status_label": 0,
                 "pad_y_status_label": 0,
             },
-            # default minutes values
             "timer": {
                 "small": [10, 2, 6, 4],
-                "medium": [25, 5, 15, 4],  # focus/work  # small chill  # big chill  # cycles amount
+                "medium": [25, 5, 15, 4],
                 "big": [45, 9, 27, 4],
                 "user": [],
-                "current_preset": "small",
+                "current_preset": "medium",
             },
             "appearence": {
                 "themes": {
@@ -32,22 +30,30 @@ class SettingsManager:
                         "status_rest": "#3BBF77",
                         "status_pause": "#808080",
                         "status_focus": "#3B77BC",
-                        "bg": [],
+                        "background_top": "#FFFFFF",
+                        "background_bot": "#F0F0F0",
                     },
                     "dark": {
                         "status_rest": "#012B00",
                         "status_pause": "#252525",
                         "status_focus": "#002249",
-                        "bg": [],
+                        "background_top": "#1E1E1E",
+                        "background_bot": "#2D2D2D",
                     },
-                    "user": {},
+                    "user": {
+                        "status_rest": "#3BBF77",
+                        "status_pause": "#808080",
+                        "status_focus": "#3B77BC",
+                        "background_top": "#1E1E1E",
+                        "background_bot": "#2D2D2D",
+                    },
                     "current_preset": "dark",
                 },
                 "fonts": {
                     "status": ["Times", "24", "bold"],
                     "minutes": ["Times", "32", "bold"],
-                    "buttons": [],
-                    "labels": [],
+                    "buttons": ["Helvetica", "10"],
+                    "labels": ["Helvetica", "10"],
                 },
                 "status_title": {
                     "pause": "⏸PAUSE",
@@ -90,6 +96,8 @@ class SettingsManager:
             },
         }
         self.settings = {}
+        # Callback для уведомления об изменениях настроек
+        self.callbacks = []
 
     def load(self) -> Dict[str, Any]:
         """Load settings from file"""
@@ -123,6 +131,7 @@ class SettingsManager:
                 value = value[k]
             return value
         except (KeyError, TypeError):
+            print(f"ERROR when getting setting {keys}")
             return default
 
     def set_val(self, key: str, value_to_save: Any) -> None:
@@ -133,10 +142,72 @@ class SettingsManager:
             ref = ref[k]
         ref[keys[-1]] = value_to_save
 
-    def reset_to_default(self, section: Optional[str] = None) -> None:
-        """Reset full settings or section(for future) to default"""
-        if section:
-            if section in self.default_settings:
-                self.settings[section] = self.default_settings[section].copy()
-        else:
-            self.settings = self.default_settings.copy()
+        # Уведомляем всех подписчиков об изменениях
+        for callback in self.callbacks:
+            callback(key, value_to_save)
+
+    def add_callback(self, callback: Callable) -> None:
+        """Добавление callback для уведомления об изменениях"""
+        self.callbacks.append(callback)
+
+    def remove_callback(self, callback: Callable) -> None:
+        """Удаление callback"""
+        if callback in self.callbacks:
+            self.callbacks.remove(callback)
+
+    def set_timer_preset(self, preset_name: str, values: list | None = None) -> None:
+        """Установка пресета таймера"""
+        if preset_name not in ["small", "medium", "big", "user"]:
+            return
+
+        # Если переключаемся на user и переданы значения
+        if preset_name == "user" and values:
+            self.set_val("timer.user", values)
+
+        # Устанавливаем текущий пресет
+        self.set_val("timer.current_preset", preset_name)
+        self.save()
+
+    def toggle_setting(self, setting_key: str) -> bool:
+        """Переключение boolean настройки"""
+        current_value = self.get(setting_key)
+        if isinstance(current_value, bool):
+            new_value = not current_value
+            self.set_val(setting_key, new_value)
+            self.save()
+            return new_value
+        return current_value
+
+    # ----------------- НИЖЕ ДЛЯ ГУИ ОБЛЕГЧАЮЩИЕ МЕТОДЫ
+    def get_current_theme_colors(self):
+        """Получение цветов текущей темы"""
+        theme_name = self.get("appearence.themes.current_preset", "dark")
+        theme = self.get(f"appearence.themes.{theme_name}", {})
+
+        return {
+            "status_rest": theme.get("status_rest", "#3BBF77"),
+            "status_pause": theme.get("status_pause", "#808080"),
+            "status_focus": theme.get("status_focus", "#3B77BC"),
+            "background_top": theme.get("background_top", "#1E1E1E"),
+            "background_bot": theme.get("background_bot", "#2D2D2D"),
+        }
+
+    def get_current_fonts(self):
+        """Получение текущих шрифтов"""
+        fonts = self.get("appearence.fonts", {})
+
+        # Вспомогательная функция для получения шрифта или значения по умолчанию
+        def get_font(key, default):
+            value = fonts.get(key, default)
+            # Если значение - пустой список, используем значение по умолчанию
+            if isinstance(value, list) and len(value) == 0:
+                value = default
+            # Гарантируем, что возвращается кортеж
+            return tuple(value)
+
+        return {
+            "status": get_font("status", ["Times", "24", "bold"]),
+            "minutes": get_font("minutes", ["Times", "32", "bold"]),
+            "buttons": get_font("buttons", ["Helvetica", "10"]),
+            "labels": get_font("labels", ["Helvetica", "10"]),
+        }
