@@ -3,21 +3,6 @@ from pathlib import Path
 from keyboard import send as send_to_system_api
 from pygame import mixer
 
-"""🧪 Тестирование:
-Протестируй следующие сценарии:
-
-Автоматический переход - таймер сам переключает фазы
-
-Ручное переключение - кнопки вперед/назад
-
-Пауза и возобновление - в разных фазах
-
-Сброс - с разными пресетами
-
-Звуки - включай/выключай sound_player и media_api
-
-Long break - после последнего цикла"""
-
 
 class Timer:
     def __init__(self, settings_manager):
@@ -128,7 +113,6 @@ class Timer:
         if self.seconds_till_next_phase > 0:
             self.seconds_till_next_phase -= 1
         else:
-            # Здесь тик планируется итак. Поэтому schedule_tick=True не нужен
             self.step_in_phase()
         self._schedule_tick()
 
@@ -167,8 +151,7 @@ class Timer:
         # Сменить статус если было на паузе. Гарантирует корректную работу с паузой.
         self.process_status = {3: 1, 4: 2}.get(self.process_status, self.process_status)
 
-        self._transition_phase()
-        self._calc_cycle_step(step_back=step_back)
+        self._transition_phase(step_back=step_back)
 
         # Проверяем настройку pause_on_end_enabled при каждом использовании
         if self.settings.get("system.pause_on_end_enabled", False):
@@ -232,32 +215,40 @@ class Timer:
         except Exception as err:
             print(f"Audio play error: {err}")
 
-    def _transition_phase(self):
+    def _transition_phase(self, step_back=False):
         """Переключение между фазами"""
+        max_cycles = self.list_with_min_values[3]
+
         if self.process_status == 1:  # REST -> WORK
             self.process_status = 2
-            self.cycle_counter += 1
             self.seconds_till_next_phase = int(self.list_with_min_values[0] * self.MINUT)
+
+            if not step_back:
+                # После LONG REST сбрасываем цикл, иначе увеличиваем
+                if self.cycle_counter >= max_cycles - 1:
+                    self.cycle_counter = 0
+                else:
+                    self.cycle_counter += 1
+
             self._handle_audio_api(play_track="work")
+
         elif self.process_status == 2:  # WORK -> REST
             self.process_status = 1
-            self.seconds_till_next_phase = int(self.list_with_min_values[1] * self.MINUT)
-            if self.cycle_counter == self.list_with_min_values[3] - 1:
-                self.seconds_till_next_phase = int(self.list_with_min_values[2] * self.MINUT)
-            self._handle_audio_api(play_track="rest")
 
-    def _calc_cycle_step(self, step_back=False):
-        """Сдвиг счетчика циклов при пересечении границы циклов."""
-        # Вычитать единицу у счетчика циклов нужно только при переходе назад от W к R: R<-W
-        # Статус уже переключен, т.к. _transition_phase вызывается раньше!
-        if step_back and self.process_status == 1:
-            self.cycle_counter -= 1
-        if self.cycle_counter >= self.list_with_min_values[3] - 1 and self.process_status == 1:
-            self.cycle_counter = 0
-        elif self.cycle_counter < 0 and self.process_status == 2:
-            self.cycle_counter = self.list_with_min_values[3] - 1
-            # Этот вариант озвращат всегда большой перерыв
-            self.seconds_till_next_phase = int(self.list_with_min_values[2] * self.MINUT)
+            # При движении назад прсваиваем максимум на границе или уменьшаем
+            if step_back:
+                self.cycle_counter -= 1
+                # Граница: если ушли в отрицательные → LONG REST
+                if self.cycle_counter < 0:
+                    self.cycle_counter = max_cycles - 1
+
+            # Определяем тип REST
+            if self.cycle_counter == max_cycles - 1:
+                self.seconds_till_next_phase = int(self.list_with_min_values[2] * self.MINUT)
+            else:
+                self.seconds_till_next_phase = int(self.list_with_min_values[1] * self.MINUT)
+
+            self._handle_audio_api(play_track="rest")
 
     def _cancel_tick(self):
         """Отменить таймер"""
