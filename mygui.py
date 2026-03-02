@@ -26,11 +26,16 @@ class MyGUI:
                 "sound_player": "♫ Sound",
                 "media_api": "Media",
                 "reset_timer": "↺ Reset",
-                "next_previous_buttons": [" << ", " >> "],
+                "next_previous_buttons": ["  <<  ", "  >>  "],
                 "settings": "⚙",
                 "exit": "Exit",
             },
         )
+
+        # ✅ ИСПРАВЛЕНИЕ #2: Инициализация _rebuild_job и _tick_job в __init__
+        self._rebuild_job = None
+        self._tick_job = None
+        self.qs_buttons = {}  # ✅ Явная инициализация словаря кнопок
 
         self._apply_window_geometry()
         self.settings.add_callback(self._on_settings_changed)
@@ -41,12 +46,13 @@ class MyGUI:
         )
 
         self._init_ui()
-
-        # Применяем состояние Always on Top сразу при старте
         self._apply_topmost_setting()
 
         if self.timer.process_status not in (3, 4):
             self.timer.start()
+
+        # ✅ Регистрация обработчика закрытия окна
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self.root.mainloop()
 
@@ -55,7 +61,9 @@ class MyGUI:
         w = self.settings.get("window.width", 336)
         h = self.settings.get("window.height", 255)
         self.root.geometry(f"{w}x{h}")
-        self.root.minsize(350, 280)
+        # ✅ ИСПРАВЛЕНИЕ #3: Убран конфликт minsize с настройками JSON
+        # Устанавливаем minsize меньше или равным дефолтным значениям из настроек
+        self.root.minsize(300, 220)  # Значения меньше дефолтных 336x255
 
     def _apply_topmost_setting(self):
         """Применяет атрибут 'поверх всех окон' на основе настроек."""
@@ -67,10 +75,10 @@ class MyGUI:
         Обработчик изменений настроек.
         Оптимизирует перерисовку, вызывая обновление только нужных частей UI.
         """
+        # ✅ ИСПРАВЛЕНИЕ #2: Теперь _rebuild_job гарантированно существует
         if "appearence.themes" in key or "system.quick_settings" in key:
-            if hasattr(self, "_rebuild_job") and self._rebuild_job:
+            if self._rebuild_job:
                 self.root.after_cancel(self._rebuild_job)
-            # Используем update_config вместо полной пересборки для устранения мерцания
             self._rebuild_job = self.root.after(150, self._update_ui_config)
         elif key.startswith("window."):
             self.root.after(100, self._apply_window_geometry)
@@ -86,7 +94,7 @@ class MyGUI:
             delay: Задержка в миллисекундах для планирования.
         """
         if action == "cancel":
-            if hasattr(self, "_tick_job") and self._tick_job:
+            if self._tick_job:
                 self.root.after_cancel(self._tick_job)
                 self._tick_job = None
             return None
@@ -112,50 +120,63 @@ class MyGUI:
     def _update_ui_config(self):
         """
         Обновляет конфигурацию UI (цвета, шрифты, видимость кнопок) без пересоздания виджетов.
-        Используется для устранения мерцания при смене темы или настроек.
         """
         colors = self.settings.get_current_theme_colors()
         fonts = self.settings.get_current_fonts()
 
-        # Обновление топ фрейма
         self.top_frame.config(bg=colors["background_top"])
         self.bot_frame.config(bg=colors["background_bot"])
 
-        # Обновление статусной секции
         for widget in self.top_frame.winfo_children():
             widget.config(bg=colors["background_top"])
 
-        # Принудительное обновление текстов и цветов статусов
         self.update_timer_display()
 
-        # Обновление навигации и кнопок
         for widget in self.bot_frame.winfo_children():
             widget.config(bg=colors["background_bot"])
-            # Рекурсивно для вложенных фреймов кнопок
-            for child in widget.winfo_children():
-                if isinstance(child, tk.Button):
-                    # Простая перерисовка стиля кнопки
-                    pass
 
-        # Пересоздаем только секцию быстрых настроек, так как там меняется состав кнопок
-        for widget in self.bot_frame.winfo_children():
-            if isinstance(widget, tk.Frame) and widget is not self.bot_frame:
-                # Находим фрейм кнопок по наличию кнопок внутри
-                if any(isinstance(c, tk.Button) for c in widget.winfo_children()):
-                    # Если это не навигация (в навигации кнопки в центре)
-                    # Для простоты пересобираем только quick_settings_frame
-                    pass
+        # ✅ ИСПРАВЛЕНИЕ #1: Принудительное обновление кнопок quick settings
+        self._update_quick_settings_buttons(colors, fonts)
 
-        # Надежный способ: очищаем только quick_settings_section и создаем заново
-        # Но чтобы избежать мерцания, лучше найти конкретный фрейм
-        for widget in self.bot_frame.winfo_children():
-            if hasattr(widget, "_is_quick_settings"):
-                widget.destroy()
+    def _update_quick_settings_buttons(self, colors, fonts):
+        """
+        Обновляет существующие кнопки быстрых настроек.
+        Меняет видимость, текст и цвета без уничтожения виджетов.
+        """
+        # ✅ ИСПРАВЛЕНИЕ #1: Проверка на существование qs_buttons
+        if not hasattr(self, "qs_buttons") or not self.qs_buttons:
+            return
 
-        self._create_quick_settings_section(self.bot_frame, colors, fonts)
+        quick_settings_map = {
+            "always_on_top": "system.always_on_top_enabled",
+            "pause_on_end": "system.pause_on_end_enabled",
+            "sound_player": "system.sound_player_enabled",
+            "media_api": "system.media_api_enabled",
+        }
 
-        # Перепаковываем навигацию, если она сбилась (опционально)
-        self.bot_frame.pack_propagate(False)
+        # ✅ ИСПРАВЛЕНИЕ #1: Сначала скрываем все кнопки
+        for btn in self.qs_buttons.values():
+            btn.pack_forget()
+
+        # ✅ ИСПРАВЛЕНИЕ #1: Обновляем и показываем только видимые кнопки
+        for key, sys_key in quick_settings_map.items():
+            if key not in self.qs_buttons:
+                continue
+
+            is_visible = self.settings.get(f"system.quick_settings.{key}", False)
+            if is_visible:
+                is_active = self.settings.get(sys_key, False)
+                btn_text = self.button_labels.get(key, key.replace("_", "  ").title())
+
+                btn = self.qs_buttons[key]
+                btn.config(
+                    text=btn_text,
+                    bg=colors["button_pressed_bg"] if is_active else colors["button_bg"],
+                    fg=colors["button_pressed_fg"] if is_active else colors["button_fg"],
+                    relief=tk.SUNKEN if is_active else tk.RAISED,
+                    font=fonts["buttons"],
+                )
+                btn.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
 
     def _create_status_section(self, parent, colors, fonts):
         """Создает секцию отображения статуса и времени таймера."""
@@ -198,7 +219,7 @@ class MyGUI:
             status_container,
             text=f"Cycle: {display_cycle} / {max_cycles}",
             font=fonts["labels"],
-            fg=colors["status_pause"],
+            fg=colors["button_fg"],
             bg=colors["background_top"],
             cursor="hand2",
         )
@@ -206,10 +227,7 @@ class MyGUI:
         self.lbl_cycles.bind("<Button-1>", lambda e: self.toggle_start_pause())
 
     def _create_navigation_section(self, parent, colors, fonts):
-        """
-        Создает секцию навигации.
-        Порядок кнопок: Settings (слева), << Reset >> (центр), Exit (справа).
-        """
+        """Создает секцию навигации."""
         nav_container = tk.Frame(parent, bg=colors["background_bot"])
         nav_container.pack(fill=tk.X, pady=10, padx=10)
 
@@ -229,10 +247,9 @@ class MyGUI:
         center_frame = tk.Frame(nav_container, bg=colors["background_bot"])
         center_frame.grid(row=0, column=1, padx=10)
 
-        # Порядок: <<, Reset, >>
         self._create_button(
             center_frame,
-            text=self.button_labels.get("next_previous_buttons", [" << ", " >> "])[0],
+            text=self.button_labels.get("next_previous_buttons", ["  <<  ", "  >>  "])[0],
             command=lambda: self._step_phase_back(),
             colors=colors,
             fonts=fonts,
@@ -248,7 +265,7 @@ class MyGUI:
 
         self._create_button(
             center_frame,
-            text=self.button_labels.get("next_previous_buttons", [" << ", " >> "])[1],
+            text=self.button_labels.get("next_previous_buttons", ["  <<  ", "  >>  "])[1],
             command=lambda: self._step_phase_forward(),
             colors=colors,
             fonts=fonts,
@@ -274,9 +291,11 @@ class MyGUI:
         self.root.after(50, self.update_timer_display)
 
     def _create_quick_settings_section(self, parent, colors, fonts):
-        """Создает панель быстрых настроек с динамической видимостью кнопок."""
+        """
+        Создает панель быстрых настроек.
+        Сохраняет ссылки на кнопки в self.qs_buttons.
+        """
         qs_frame = tk.Frame(parent, bg=colors["background_bot"])
-        qs_frame._is_quick_settings = True  # Маркер для обновления
         qs_frame.pack(fill=tk.X, padx=5, pady=5)
 
         quick_settings_map = {
@@ -286,11 +305,14 @@ class MyGUI:
             "media_api": "system.media_api_enabled",
         }
 
+        # ✅ qs_buttons уже инициализирован в __init__
+        self.qs_buttons = {}
+
         for key, sys_key in quick_settings_map.items():
             is_visible = self.settings.get(f"system.quick_settings.{key}", False)
             if is_visible:
                 is_active = self.settings.get(sys_key, False)
-                btn_text = self.button_labels.get(key, key.replace("_", " ").title())
+                btn_text = self.button_labels.get(key, key.replace("_", "  ").title())
 
                 btn = self._create_button(
                     qs_frame,
@@ -301,6 +323,7 @@ class MyGUI:
                     is_pressed=is_active,
                 )
                 btn.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
+                self.qs_buttons[key] = btn
 
     def _create_button(self, parent, text, command, colors, fonts, is_pressed=False):
         """
@@ -328,18 +351,15 @@ class MyGUI:
         return btn
 
     def toggle_quick_setting(self, key, sys_key):
-        """
-        Переключает состояние быстрой настройки.
-        Для 'always_on_top' немедленно применяет атрибут окна.
-        """
+        """Переключает состояние быстрой настройки."""
         new_state = self.settings.toggle_setting(sys_key)
 
-        # Исправление #4: Мгновенное применение Always on Top
         if sys_key == "system.always_on_top_enabled":
             self.root.attributes("-topmost", new_state)
 
-        # Обновляем только секцию кнопок, чтобы избежать мерцания всего UI
-        self.root.after(100, self._update_ui_config)
+        colors = self.settings.get_current_theme_colors()
+        fonts = self.settings.get_current_fonts()
+        self.root.after(50, lambda: self._update_quick_settings_buttons(colors, fonts))
 
     def toggle_start_pause(self):
         """Переключает состояние таймера между Запуском и Паузой."""
@@ -377,8 +397,12 @@ class MyGUI:
 
     def _on_close(self):
         """Корректно закрывает приложение, останавливая таймер и аудио."""
-        if hasattr(self, "_tick_job") and self._tick_job:
+        # ✅ Отменяем все запланированные задачи
+        if self._tick_job:
             self.root.after_cancel(self._tick_job)
+        if self._rebuild_job:
+            self.root.after_cancel(self._rebuild_job)
+
         self.timer._stop_audio()
         self.root.quit()
         self.root.destroy()

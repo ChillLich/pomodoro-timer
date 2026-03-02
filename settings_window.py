@@ -53,7 +53,7 @@ class SettingsWindow(tk.Toplevel):
         )
 
     def create_preset_frame(self, parent):
-        """Создает секцию выбора и настройки пресетов таймера."""
+        """Секция настройки пресетов таймера."""
         frame = tk.LabelFrame(parent, text="Preset Settings", padx=10, pady=10)
         frame.pack(fill=tk.X, pady=5)
 
@@ -99,7 +99,7 @@ class SettingsWindow(tk.Toplevel):
             self.user_entries.append(entry)
 
     def create_audio_frame(self, parent):
-        """Создает секцию выбора путей к аудиофайлам."""
+        """Секция путей к аудиофайлам."""
         frame = tk.LabelFrame(parent, text="Audio Paths", padx=10, pady=10)
         frame.pack(fill=tk.X, pady=5)
 
@@ -121,8 +121,10 @@ class SettingsWindow(tk.Toplevel):
 
     def create_theme_frame(self, parent):
         """
-        Создает секцию выбора темы и редактор цветов.
-        Исправление #2: Добавлены missing цвета (status_pause, button_pressed_fg).
+        Секция выбора и настройки темы.
+        Изменения:
+        1. Порядок цветов соответствует config.py.
+        2. Добавлены дружелюбные названия для интерфейса.
         """
         frame = tk.LabelFrame(parent, text="Theme", padx=10, pady=10)
         frame.pack(fill=tk.BOTH, expand=True, pady=5)
@@ -149,16 +151,17 @@ class SettingsWindow(tk.Toplevel):
 
         current_user_theme = self.settings.get("appearence.themes.user", {})
 
-        # Расширенный список цветов для настройки
+        # Исправление #1 и #2: Порядок как в config.py + дружелюбные названия
         color_labels = [
-            ("status_focus", "Focus"),
-            ("status_rest", "Rest"),
-            ("status_pause", "Pause"),  # Добавлено
-            ("background_top", "BG Top"),
-            ("background_bot", "BG Bot"),
-            ("button_bg", "Btn BG"),
-            ("button_pressed_bg", "Btn Press"),
-            ("button_pressed_fg", "Btn Text"),  # Добавлено
+            ("status_rest", "Отдых (текст)"),
+            ("status_pause", "Пауза (текст)"),
+            ("status_focus", "Фокус (текст)"),
+            ("background_top", "Фон верхний"),
+            ("background_bot", "Фон нижний"),
+            ("button_bg", "Кнопки (фон)"),
+            ("button_fg", "Кнопки (текст)"),
+            ("button_pressed_bg", "Кнопки нажатые (фон)"),
+            ("button_pressed_fg", "Кнопки нажатые (текст)"),
         ]
 
         self.user_theme_vars = {}
@@ -166,19 +169,20 @@ class SettingsWindow(tk.Toplevel):
             row = tk.Frame(self.user_colors_frame)
             row.pack(fill=tk.X, pady=1)
 
-            tk.Label(row, text=label, width=10, anchor=tk.W, font=("Helvetica", 9)).pack(
+            tk.Label(row, text=label, width=20, anchor=tk.W, font=("Helvetica", 9)).pack(
                 side=tk.LEFT
             )
 
             default_colors = {
-                "status_focus": "#3B77BC",
                 "status_rest": "#3BBF77",
-                "status_pause": "#808080",  # Default added
+                "status_pause": "#808080",
+                "status_focus": "#3B77BC",
                 "background_top": "#1E1E1E",
                 "background_bot": "#2D2D2D",
                 "button_bg": "#3D3D3D",
+                "button_fg": "#FFFFFF",
                 "button_pressed_bg": "#3B77BC",
-                "button_pressed_fg": "#FFFFFF",  # Default added
+                "button_pressed_fg": "#FFFFFF",
             }
             current_color = current_user_theme.get(key, default_colors[key])
 
@@ -193,7 +197,7 @@ class SettingsWindow(tk.Toplevel):
             btn.pack(side=tk.LEFT)
 
     def _on_theme_change(self, event):
-        """Показывает или скрывает редактор цветов в зависимости от выбранной темы."""
+        """Показывает/скрывает редактор цветов user темы."""
         selected = self.theme_combo.get()
         if selected == "user":
             self.user_colors_frame.pack(fill=tk.BOTH, expand=True, pady=5)
@@ -201,7 +205,7 @@ class SettingsWindow(tk.Toplevel):
             self.user_colors_frame.pack_forget()
 
     def _pick_color(self, entry):
-        """Открывает диалог выбора цвета и обновляет поле ввода."""
+        """Открывает выбор цвета."""
         current = entry.get()
         color = colorchooser.askcolor(color=current)[1]
         if color:
@@ -209,7 +213,7 @@ class SettingsWindow(tk.Toplevel):
             entry.insert(0, color)
 
     def create_quick_settings_frame(self, parent):
-        """Создает секцию управления видимостью и состоянием быстрых настроек."""
+        """Секция управления видимостью и состоянием быстрых настроек."""
         frame = tk.LabelFrame(parent, text="Quick Settings", padx=10, pady=10)
         frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
@@ -253,7 +257,7 @@ class SettingsWindow(tk.Toplevel):
             }
 
     def browse_file(self, entry_widget):
-        """Открывает диалог выбора файла для настройки путей."""
+        """Открывает диалог выбора файла."""
         filename = filedialog.askopenfilename(
             filetypes=[("MP3 Files", "*.mp3"), ("All Files", "*.*")]
         )
@@ -262,7 +266,7 @@ class SettingsWindow(tk.Toplevel):
             entry_widget.insert(0, filename)
 
     def save_and_close(self):
-        """Сохраняет все изменения в SettingsManager и закрывает окно."""
+        """Сохраняет все изменения и закрывает окно."""
         selected_preset = self.preset_combo.get()
         self.settings.set_val("timer.current_preset", selected_preset)
 
