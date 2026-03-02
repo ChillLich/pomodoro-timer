@@ -87,13 +87,12 @@ class MyGUI:
         w = self.root.winfo_width()
         h = self.root.winfo_height()
 
-        if w > 200 and h > 150:
-            current_w = self.settings.get("window.width", 336)
-            current_h = self.settings.get("window.height", 255)
+        current_w = self.settings.get("window.width", 336)
+        current_h = self.settings.get("window.height", 255)
 
-            if abs(w - current_w) > 5 or abs(h - current_h) > 5:
-                self.settings.set_val("window.width", w)
-                self.settings.set_val("window.height", h)
+        if abs(w - current_w) > 5 or abs(h - current_h) > 5:
+            self.settings.set_val("window.width", w)
+            self.settings.set_val("window.height", h)
 
     def _apply_topmost_setting(self):
         """Применяет атрибут 'поверх всех окон' на основе настроек."""
@@ -228,7 +227,7 @@ class MyGUI:
     def _update_quick_settings_buttons(self, colors, fonts):
         """
         Обновляет существующие кнопки быстрых настроек.
-        Меняет видимость, текст и цвета без уничтожения виджетов.
+        ✅ ИСПРАВЛЕНИЕ: Проверяем наличие кнопки в словаре перед обновлением
         """
         if not hasattr(self, "qs_buttons") or not self.qs_buttons:
             return
@@ -246,6 +245,7 @@ class MyGUI:
 
         # ✅ Обновляем и показываем только видимые кнопки
         for key, sys_key in quick_settings_map.items():
+            # ✅ ПРОВЕРКА: кнопка должна существовать в словаре
             if key not in self.qs_buttons:
                 continue
 
@@ -265,6 +265,7 @@ class MyGUI:
                     font=fonts["buttons"],
                 )
                 btn.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
+            # ✅ Если кнопка не видима - она остаётся скрытой (pack_forget выше)
 
     def _create_status_section(self, parent, colors, fonts):
         """Создает секцию отображения статуса и времени таймера."""
@@ -398,7 +399,7 @@ class MyGUI:
     def _create_quick_settings_section(self, parent, colors, fonts):
         """
         Создает панель быстрых настроек.
-        Сохраняет ссылки на кнопки в self.qs_buttons.
+        ✅ ИСПРАВЛЕНИЕ: Создаём все кнопки заранее, независимо от видимости
         """
         qs_frame = tk.Frame(parent, bg=colors["background_bot"])
         qs_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -413,22 +414,29 @@ class MyGUI:
 
         self.qs_buttons = {}
 
+        # ✅ СОЗДАЁМ все кнопки заранее, даже если они скрыты
         for key, sys_key in quick_settings_map.items():
             is_visible = self.settings.get(f"system.quick_settings.{key}", False)
-            if is_visible:
-                is_active = self.settings.get(sys_key, False)
-                btn_text = self.button_labels.get(key, key.replace("_", " ").title())
+            is_active = self.settings.get(sys_key, False)
+            btn_text = self.button_labels.get(key, key.replace("_", " ").title())
 
-                btn = self._create_button(
-                    qs_frame,
-                    text=btn_text,
-                    command=lambda k=key, s=sys_key: self.toggle_quick_setting(k, s),
-                    colors=colors,
-                    fonts=fonts,
-                    is_pressed=is_active,
-                )
+            btn = self._create_button(
+                qs_frame,
+                text=btn_text,
+                command=lambda k=key, s=sys_key: self.toggle_quick_setting(k, s),
+                colors=colors,
+                fonts=fonts,
+                is_pressed=is_active,
+            )
+
+            # ✅ Сохраняем ссылку на кнопку независимо от видимости
+            self.qs_buttons[key] = btn
+
+            # ✅ Показываем только если кнопка должна быть видима
+            if is_visible:
                 btn.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
-                self.qs_buttons[key] = btn
+            else:
+                btn.pack_forget()  # Скрываем, но не уничтожаем
 
     def _create_button(self, parent, text, command, colors, fonts, is_pressed=False):
         """

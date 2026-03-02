@@ -19,7 +19,7 @@ class SettingsWindow(tk.Toplevel):
         self.settings = settings_manager
         self.rebuild_callback = rebuild_callback
         self.title("Settings")
-        self.geometry("550x500")
+        self.geometry("580x550")
         self.resizable(True, True)
 
         self.qs_vars = {}
