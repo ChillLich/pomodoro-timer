@@ -26,7 +26,7 @@ class MyGUI:
                 "sound_player": "♫ Sound",
                 "media_api": "Media",
                 "reset_timer": "↺ Reset",
-                "next_previous_buttons": ["  <<  ", "  >>  "],
+                "next_previous_buttons": ["   <<   ", "   >>   "],
                 "settings": "⚙",
                 "exit": "Exit",
             },
@@ -35,8 +35,12 @@ class MyGUI:
         # ✅ Инициализация переменных для job'ов
         self._rebuild_job = None
         self._tick_job = None
+        self._resize_job = None
         self.qs_buttons = {}
-        self.nav_buttons = []  # ✅ Список для хранения кнопок навигации
+        self.nav_buttons = []
+
+        # ✅ Храним ссылки на все контейнеры для обновления
+        self.all_frames = []
 
         # ✅ Загружаем размеры из настроек (или используем дефолтные)
         self._apply_window_geometry()
@@ -67,19 +71,14 @@ class MyGUI:
         w = self.settings.get("window.width", 336)
         h = self.settings.get("window.height", 255)
         self.root.geometry(f"{w}x{h}")
-        # ✅ Убрано ограничение minsize для свободы пользователя
-        # self.root.minsize(300, 220)  # Закомментировано или удалено
 
     def _on_window_resize(self, event):
         """
         Обработчик изменения размера окна.
         Сохраняет размеры только если окно не свернуто/развернуто.
         """
-        # ✅ Проверяем что это изменение размера главного окна, не сворачивание
         if event.widget == self.root and event.width > 0 and event.height > 0:
-            # ✅ Сохраняем размеры в настройки (без частого сохранения)
-            # Используем after для debounce
-            if hasattr(self, "_resize_job") and self._resize_job:
+            if self._resize_job:
                 self.root.after_cancel(self._resize_job)
             self._resize_job = self.root.after(500, self._save_window_size)
 
@@ -88,17 +87,13 @@ class MyGUI:
         w = self.root.winfo_width()
         h = self.root.winfo_height()
 
-        # ✅ Сохраняем только если размеры разумные
         if w > 200 and h > 150:
             current_w = self.settings.get("window.width", 336)
             current_h = self.settings.get("window.height", 255)
 
-            # ✅ Сохраняем только если размеры изменились значительно
             if abs(w - current_w) > 5 or abs(h - current_h) > 5:
                 self.settings.set_val("window.width", w)
                 self.settings.set_val("window.height", h)
-                # ✅ Не вызываем save() здесь, чтобы не писать в файл слишком часто
-                # save() вызывается при закрытии или явном сохранении настроек
 
     def _apply_topmost_setting(self):
         """Применяет атрибут 'поверх всех окон' на основе настроек."""
@@ -144,38 +139,25 @@ class MyGUI:
 
         self.top_frame = tk.Frame(self.root, bg=colors["background_top"])
         self.top_frame.pack(fill=tk.X, side=tk.TOP)
+        self.all_frames.append(self.top_frame)
         self._create_status_section(self.top_frame, colors, fonts)
 
         self.bot_frame = tk.Frame(self.root, bg=colors["background_bot"])
         self.bot_frame.pack(fill=tk.BOTH, expand=True, side=tk.BOTTOM)
+        self.all_frames.append(self.bot_frame)
         self._create_navigation_section(self.bot_frame, colors, fonts)
         self._create_quick_settings_section(self.bot_frame, colors, fonts)
 
     def _update_ui_config(self):
         """
         Обновляет конфигурацию UI (цвета, шрифты, видимость кнопок) без пересоздания виджетов.
-        ✅ ИСПРАВЛЕНИЕ: Полное обновление всех цветов включая кнопки навигации
+        ✅ ИСПРАВЛЕНИЕ: Рекурсивное обновление всех фреймов и виджетов
         """
         colors = self.settings.get_current_theme_colors()
         fonts = self.settings.get_current_fonts()
 
-        # ✅ Обновляем цвета фреймов
-        self.top_frame.config(bg=colors["background_top"])
-        self.bot_frame.config(bg=colors["background_bot"])
-
-        # ✅ Обновляем все виджеты в top_frame
-        for widget in self.top_frame.winfo_children():
-            widget.config(bg=colors["background_top"])
-            # ✅ Обновляем цвета текста если это Label
-            if isinstance(widget, tk.Label):
-                widget.config(fg=colors["button_fg"])
-
-        # ✅ Обновляем все виджеты в bot_frame
-        for widget in self.bot_frame.winfo_children():
-            widget.config(bg=colors["background_bot"])
-            # ✅ Обновляем цвета текста если это Label
-            if isinstance(widget, tk.Label):
-                widget.config(fg=colors["button_fg"])
+        # ✅ Обновляем все фреймы рекурсивно
+        self._update_all_frames_colors(self.root, colors)
 
         # ✅ Обновляем таймер
         self.update_timer_display()
@@ -183,13 +165,49 @@ class MyGUI:
         # ✅ Обновляем кнопки быстрых настроек
         self._update_quick_settings_buttons(colors, fonts)
 
-        # ✅ ИСПРАВЛЕНИЕ: Обновляем кнопки навигации
+        # ✅ Обновляем кнопки навигации
         self._update_all_button_colors(colors, fonts)
+
+    def _update_all_frames_colors(self, widget, colors):
+        """
+        ✅ НОВОЕ: Рекурсивно обновляет цвета всех фреймов и их содержимого.
+        """
+        for child in widget.winfo_children():
+            if isinstance(child, tk.Frame):
+                # Определяем какой цвет фона применить
+                if child in [self.top_frame] or self._is_child_of(child, self.top_frame):
+                    bg_color = colors["background_top"]
+                else:
+                    bg_color = colors["background_bot"]
+
+                child.config(bg=bg_color)
+
+                # Рекурсивно обрабатываем вложенные виджеты
+                self._update_all_frames_colors(child, colors)
+
+            elif isinstance(child, tk.Label):
+                # Обновляем фон и текст у меток
+                parent_bg = child.master.cget("bg")
+                child.config(bg=parent_bg, fg=colors["button_fg"])
+
+            elif isinstance(child, tk.Button):
+                # Кнопки обновляются отдельно в _update_all_button_colors
+                pass
+
+    def _is_child_of(self, child, parent):
+        """Проверяет является ли виджет потомком указанного родителя."""
+        current = child.master
+        while current:
+            if current == parent:
+                return True
+            if current == self.root:
+                return False
+            current = current.master
+        return False
 
     def _update_all_button_colors(self, colors, fonts):
         """
-        ✅ НОВОЕ: Обновляет цвета всех кнопок в интерфейсе.
-        Вызывается при смене темы для корректного обновления.
+        ✅ Обновляет цвета всех кнопок в интерфейсе.
         """
         # ✅ Обновляем кнопки навигации
         for btn in self.nav_buttons:
@@ -202,9 +220,9 @@ class MyGUI:
                     font=fonts["buttons"],
                 )
             except Exception:
-                pass  # Игнорируем ошибки для удалённых кнопок
+                pass
 
-        # ✅ Обновляем кнопки быстрых настроек через существующий метод
+        # ✅ Обновляем кнопки быстрых настроек
         self._update_quick_settings_buttons(colors, fonts)
 
     def _update_quick_settings_buttons(self, colors, fonts):
@@ -234,10 +252,9 @@ class MyGUI:
             is_visible = self.settings.get(f"system.quick_settings.{key}", False)
             if is_visible:
                 is_active = self.settings.get(sys_key, False)
-                btn_text = self.button_labels.get(key, key.replace("_", "  ").title())
+                btn_text = self.button_labels.get(key, key.replace("_", " ").title())
 
                 btn = self.qs_buttons[key]
-                # ✅ ИСПРАВЛЕНИЕ: Явно устанавливаем activebackground/activeforeground
                 btn.config(
                     text=btn_text,
                     bg=colors["button_pressed_bg"] if is_active else colors["button_bg"],
@@ -254,6 +271,7 @@ class MyGUI:
         status_container = tk.Frame(parent, bg=colors["background_top"], cursor="hand2")
         status_container.pack(anchor=tk.CENTER, pady=20)
         status_container.bind("<Button-1>", lambda e: self.toggle_start_pause())
+        self.all_frames.append(status_container)
 
         status_info = self.timer.get_status_info()
         status_text = self.settings.get(
@@ -300,10 +318,11 @@ class MyGUI:
     def _create_navigation_section(self, parent, colors, fonts):
         """
         Создает секцию навигации.
-        ✅ ИСПРАВЛЕНИЕ: Сохраняет ссылки на кнопки в self.nav_buttons
+        ✅ Сохраняет ссылки на кнопки в self.nav_buttons
         """
         nav_container = tk.Frame(parent, bg=colors["background_bot"])
         nav_container.pack(fill=tk.X, pady=10, padx=10)
+        self.all_frames.append(nav_container)
 
         nav_container.columnconfigure(0, weight=1)
         nav_container.columnconfigure(1, weight=0)
@@ -324,10 +343,11 @@ class MyGUI:
 
         center_frame = tk.Frame(nav_container, bg=colors["background_bot"])
         center_frame.grid(row=0, column=1, padx=10)
+        self.all_frames.append(center_frame)
 
         prev_btn = self._create_button(
             center_frame,
-            text=self.button_labels.get("next_previous_buttons", ["  <<  ", "  >>  "])[0],
+            text=self.button_labels.get("next_previous_buttons", ["   <<   ", "   >>   "])[0],
             command=lambda: self._step_phase_back(),
             colors=colors,
             fonts=fonts,
@@ -347,7 +367,7 @@ class MyGUI:
 
         next_btn = self._create_button(
             center_frame,
-            text=self.button_labels.get("next_previous_buttons", ["  <<  ", "  >>  "])[1],
+            text=self.button_labels.get("next_previous_buttons", ["   <<   ", "   >>   "])[1],
             command=lambda: self._step_phase_forward(),
             colors=colors,
             fonts=fonts,
@@ -382,6 +402,7 @@ class MyGUI:
         """
         qs_frame = tk.Frame(parent, bg=colors["background_bot"])
         qs_frame.pack(fill=tk.X, padx=5, pady=5)
+        self.all_frames.append(qs_frame)
 
         quick_settings_map = {
             "always_on_top": "system.always_on_top_enabled",
@@ -396,7 +417,7 @@ class MyGUI:
             is_visible = self.settings.get(f"system.quick_settings.{key}", False)
             if is_visible:
                 is_active = self.settings.get(sys_key, False)
-                btn_text = self.button_labels.get(key, key.replace("_", "  ").title())
+                btn_text = self.button_labels.get(key, key.replace("_", " ").title())
 
                 btn = self._create_button(
                     qs_frame,
@@ -412,7 +433,6 @@ class MyGUI:
     def _create_button(self, parent, text, command, colors, fonts, is_pressed=False):
         """
         Фабрика кнопок с единым стилем.
-        ✅ ИСПРАВЛЕНИЕ: Явно устанавливаем activebackground/activeforeground
 
         Args:
             is_pressed: Отображать кнопку в нажатом состоянии.
@@ -429,7 +449,6 @@ class MyGUI:
             bg=bg,
             fg=fg,
             relief=relief,
-            # ✅ ИСПРАВЛЕНИЕ: Явно указываем цвета для активного состояния
             activebackground=colors["button_pressed_bg"],
             activeforeground=colors["button_pressed_fg"],
             borderwidth=2,
@@ -484,14 +503,13 @@ class MyGUI:
     def _on_close(self):
         """
         Корректно закрывает приложение, останавливая таймер и аудио.
-        ✅ ИСПРАВЛЕНИЕ: Сохраняет размеры окна перед закрытием
         """
         # ✅ Отменяем все запланированные задачи
         if self._tick_job:
             self.root.after_cancel(self._tick_job)
         if self._rebuild_job:
             self.root.after_cancel(self._rebuild_job)
-        if hasattr(self, "_resize_job") and self._resize_job:
+        if self._resize_job:
             self.root.after_cancel(self._resize_job)
 
         # ✅ Сохраняем текущие размеры окна
