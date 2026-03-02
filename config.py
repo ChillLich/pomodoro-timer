@@ -32,6 +32,10 @@ class SettingsManager:
                         "status_focus": "#3B77BC",
                         "background_top": "#FFFFFF",
                         "background_bot": "#F0F0F0",
+                        "button_bg": "#E0E0E0",
+                        "button_fg": "#000000",
+                        "button_pressed_bg": "#3B77BC",
+                        "button_pressed_fg": "#FFFFFF",
                     },
                     "dark": {
                         "status_rest": "#012B00",
@@ -39,13 +43,10 @@ class SettingsManager:
                         "status_focus": "#002249",
                         "background_top": "#1E1E1E",
                         "background_bot": "#2D2D2D",
-                    },
-                    "user": {
-                        "status_rest": "#3BBF77",
-                        "status_pause": "#808080",
-                        "status_focus": "#3B77BC",
-                        "background_top": "#1E1E1E",
-                        "background_bot": "#2D2D2D",
+                        "button_bg": "#3D3D3D",
+                        "button_fg": "#FFFFFF",
+                        "button_pressed_bg": "#3B77BC",
+                        "button_pressed_fg": "#FFFFFF",
                     },
                     "current_preset": "dark",
                 },
@@ -178,18 +179,22 @@ class SettingsManager:
             return new_value
         return current_value
 
-    # ----------------- НИЖЕ ДЛЯ ГУИ ОБЛЕГЧАЮЩИЕ МЕТОДЫ
+    # ----------------- НИЖЕ ДЛЯ ГУИ МЕТОДЫ
     def get_current_theme_colors(self):
         """Получение цветов текущей темы"""
         theme_name = self.get("appearence.themes.current_preset", "dark")
-        theme = self.get(f"appearence.themes.{theme_name}", {})
+        theme = self.get(f"appearence.themes.{theme_name}", self.get("appearence.themes.dark"))
 
         return {
-            "status_rest": theme.get("status_rest", "#3BBF77"),
-            "status_pause": theme.get("status_pause", "#808080"),
-            "status_focus": theme.get("status_focus", "#3B77BC"),
-            "background_top": theme.get("background_top", "#1E1E1E"),
-            "background_bot": theme.get("background_bot", "#2D2D2D"),
+            "status_rest": theme.get("status_rest"),
+            "status_pause": theme.get("status_pause"),
+            "status_focus": theme.get("status_focus"),
+            "background_top": theme.get("background_top"),
+            "background_bot": theme.get("background_bot"),
+            "button_bg": theme.get("button_bg"),
+            "button_fg": theme.get("button_fg"),
+            "button_pressed_bg": theme.get("button_pressed_bg"),
+            "button_pressed_fg": theme.get("button_pressed_fg"),
         }
 
     def get_current_fonts(self):

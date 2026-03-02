@@ -1,447 +1,372 @@
 import tkinter as tk
-from tkinter import messagebox as mb
+from tkinter import messagebox, ttk
 
 from config import SettingsManager
 from settings_window import SettingsWindow
-from timer import Timer
-
-"""
-БЫЛО В TIMER.RESET()
-# ЛОГИЧЕСКИ ЭТО ЗДЕСЬ НУЖНО. В ТАЙМЕРЕ АВТОМАТИЧЕСКИ ПОДТЯНУТСЯ
-# ЗНАЧЕНИЯ ИЗ settings КОЛЛБЭКАМИ
-        # Если переданы значения из GUI - сохраняем их в user пресет
-        if entry_values:
-            try:
-                float_values = [float(v) for v in entry_values]
-                # Сохраняем в user пресет и переключаемся на него
-                self.settings.set_timer_preset("user", float_values)
-                # Значения уже загрузятся через callback _on_settings_changed
-            except ValueError:
-                return False
-"""
+from TIMER import Timer
 
 
 class MyGUI:
     def __init__(self):
-        # Инициализация менеджера настроек
-        self.sm = SettingsManager()
-        self.sm.load()
+        self.settings = SettingsManager()
+        self.settings.load()
+        self.timer = Timer(self.settings)
 
-        # Создание таймера
-        self.timer = Timer(self.sm)
-        self.timer.set_gui_callbacks(self._update_gui, self._handle_tick)
+        self.root = tk.Tk()
+        self.root.title("Pomodoro Timer")
 
-        # Создание основного окна
-        self.main_window = tk.Tk()
-        self.main_window.title("Timer by @CHILLLICH")
-
-        # Получение настроек GUI
-        self.load_gui_settings()
-
-        # Применяем настройки окна УБРАТЬ ЭТО СКОРЕЕ ВСЕГО
-        self._apply_window_settings()
-
-        # Инициализация компонентов
-        self._init_info_display()
-        self._init_quick_settings()
-        self._init_buttons()
-
-        self.apply_gui_settings()
-
-        # Обновление начального статуса
-        self._update_gui()
-
-        # Регистрация callback для обновления тем
-        self.sm.add_callback(self._on_settings_changed)
-
-        # Запуск главного цикла
-        tk.mainloop()
-
-    def apply_gui_settings(self): ...
-
-    def load_gui_settings(self):
-        """Загрузка настроек для GUI из SettingsManager, НЕ применяет их."""
-        window = self.sm.get("window")
-        self.WIDTH = window.get("width")
-        self.HEIGHT = window.get("height")
-        self.PADXY = window.get("padxy")
-        self.PADXY_S = window.get("padxy_s")
-        self.PADXY_SS = window.get("padxy_ss")
-        self.ENTRY_WIDTH = window.get("entry_width")
-
-        self.STATUS_TITLE: dict[str, str] = self.sm.get("appearence.status_title")
-        self.ENTRIES_LABELS_LIST: list[str] = self.sm.get(
-            "appearence.quick_settings_minutes_entries_labels",
-        )
-        self.BUTTONS_LABELS: dict[str, str | list[str]] = self.sm.get(
-            "appearence.quick_settings_buttons_labels"
+        # ✅ Кэшируем лейблы из конфига один раз
+        self.button_labels = self.settings.get(
+            "appearence.quick_settings_buttons_labels",
+            {
+                "always_on_top": "Always on Top",
+                "pause_on_end": "Pause on End",
+                "sound_player": "♫ Sound",
+                "media_api": "Media",
+                "reset_timer": "↺ Reset",
+                "next_previous_buttons": ["<<", ">>"],
+                "settings": "⚙",
+                "exit": "Exit",
+            },
         )
 
-        self._load_theme_colors()
-        self._load_fonts()
+        self._apply_window_geometry()
 
-    def _load_theme_colors(self):
-        """Загрузка цветов темы"""
-        theme_name = self.sm.get("appearence.themes.current_preset", "dark")
-        theme = self.sm.get(f"appearence.themes.{theme_name}")
-        self.COLOR_REST = theme.get("status_rest")
-        self.COLOR_PAUSE = theme.get("status_pause")
-        self.COLOR_WORK = theme.get("status_focus")
-        self.BACKGROUND_TOP = theme.get("background_top")
-        self.BACKGROUND_BOT = theme.get("background_bot")
+        self.settings.add_callback(self._on_settings_changed)
 
-    def _load_fonts(self):
-        """Загрузка шрифтов"""
-        fonts = self.sm.get("appearence.fonts")
-        self.FONT_STATUS = fonts.get("status")
-        self.FONT_MINS = fonts.get("minutes")
-        self.FONT_BUTTONS = fonts.get("buttons")
-        self.FONT_LABELS = fonts.get("labels")
+        self.timer.set_gui_callbacks(
+            update_callback=self.update_timer_display,
+            tick_callback=self.schedule_tick,
+        )
 
-    # ПЕРЕПИСАТЬ ФУНКЦИЮ НА ПРИМЕНЕНИЕ НАСТРОЕН ОКНА
-    def _apply_window_settings(self):
-        """Применение настроек окна"""
-        self.main_window.geometry(f"{self.WIDTH}x{self.HEIGHT}")
+        # ✅ Создаём UI один раз, потом только обновляем
+        self._init_ui()
 
-        self._apply_always_on_top()
+        if self.timer.process_status not in (3, 4):
+            self.timer.start()
 
-        # Устанавливаем цвета фона
-        colors = self.sm.get_current_theme_colors()
-        self.main_window.configure(bg=colors["background_top"])
+        self.root.mainloop()
 
-    def _apply_always_on_top(self):
-        """Применяет настройку Always on top."""
-        if self.sm.get("system.always_on_top_enabled"):
-            self.main_window.attributes("-topmost", True)
-        else:
-            self.main_window.attributes("-topmost", False)
+    def _apply_window_geometry(self):
+        w = self.settings.get("window.width", 336)
+        h = self.settings.get("window.height", 255)
+        self.root.geometry(f"{w}x{h}")
+        self.root.minsize(350, 280)
 
     def _on_settings_changed(self, key: str, value):
-        """Обработка изменений настроек"""
-        if key.startswith("appearence.themes") or key.startswith("appearence.fonts"):
+        """
+        ✅ Оптимизированный callback - обновляем только нужные части UI
+        """
+        if "appearence.themes" in key or "system.quick_settings" in key:
+            # ✅ Debouncing - избегаем множественных перерисовок
+            if hasattr(self, "_rebuild_job") and self._rebuild_job:
+                self.root.after_cancel(self._rebuild_job)
+            self._rebuild_job = self.root.after(150, self._init_ui)
+        elif key.startswith("window."):
+            self.root.after(100, self._apply_window_geometry)
+        elif key.startswith("timer."):
+            self.root.after(100, self.update_timer_display)
 
-            # ТУТ УЛУЧШИТЬ, ВЫЗЫВАТЬ load_gui_settings и apply_gui_settings
-            # Обновляем цвета и шрифты
-            self._load_theme_colors()
-            self._load_fonts()
-
-            # Применяем изменения к GUI
-            self._apply_theme_to_widgets()
-            self._apply_fonts_to_widgets()
-
-        elif key == "system.always_on_top_enabled":
-            self._apply_always_on_top()
-            # self.main_window.attributes("-topmost", value)
-
-        elif key.startswith("system.quick_settings"):
-            # Обновляем видимость quick settings
-            self._update_quick_settings_visibility()
-
-    def _apply_theme_to_widgets(self):
-        """Применение темы ко всем виджетам"""
-        # Обновляем цвета фона окна
-        self.main_window.configure(bg=self.BACKGROUND_TOP)
-
-        # Обновляем фреймы
-        if hasattr(self, "frame_info_status"):
-            self.frame_info_status.configure(bg=self.BACKGROUND_TOP)
-            self.frame_info_minutes.configure(bg=self.BACKGROUND_TOP)
-
-        if hasattr(self, "frame_set_n_info"):
-            self.frame_set_n_info.configure(bg=self.BACKGROUND_BOT)
-
-        if hasattr(self, "frame_butt"):
-            self.frame_butt.configure(bg=self.BACKGROUND_BOT)
-
-        # Обновляем метки
-        if hasattr(self, "output_status_label"):
-            self.output_status_label.configure(bg=self.BACKGROUND_TOP)
-
-        if hasattr(self, "label_mins_output_label"):
-            self.label_mins_output_label.configure(bg=self.BACKGROUND_TOP)
-
-        # Обновляем цвет статуса (используется в _update_gui)
-        self._update_gui()
-
-    def _apply_fonts_to_widgets(self):
-        """Применение шрифтов ко всем виджетам"""
-        if hasattr(self, "output_status_label"):
-            self.output_status_label.configure(font=self.FONT_STATUS)
-
-        if hasattr(self, "label_mins_output_label"):
-            self.label_mins_output_label.configure(font=self.FONT_MINS)
-
-        # Обновляем шрифты кнопок
-        if hasattr(self, "buttons"):
-            for button in self.buttons:
-                button.configure(font=self.FONT_BUTTONS)
-
-        # Обновляем шрифты меток
-        if hasattr(self, "label_settings"):
-            for label in self.label_settings:
-                label.configure(font=self.FONT_LABELS)
-
-        if hasattr(self, "label_settings_description"):
-            self.label_settings_description.configure(font=self.FONT_LABELS)
-
-    def _init_info_display(self):
-        """Инициализация информационных виджетов"""
-        # Фрейм для статуса
-        self.frame_info_status = tk.Frame(self.main_window, bg=self.BACKGROUND_TOP)
-        self.frame_info_status.pack(padx=self.PADXY, pady=self.PADXY_SS, fill=tk.X)
-
-        self.output_status = tk.StringVar()
-        self.output_status_label = tk.Label(
-            self.frame_info_status,
-            textvariable=self.output_status,
-            font=self.FONT_STATUS,
-            bg=self.BACKGROUND_TOP,
-            fg="white",  # Белый текст на темном фоне
-        )
-        self.output_status_label.pack(side="top", padx=0, pady=0)
-
-        # Фрейм для минут
-        self.frame_info_minutes = tk.Frame(self.main_window, bg=self.BACKGROUND_TOP)
-        self.frame_info_minutes.pack(padx=self.PADXY, pady=self.PADXY_SS, fill=tk.X)
-
-        self.mins_output = tk.StringVar()
-        self.label_mins_output_label = tk.Label(
-            self.frame_info_minutes,
-            textvariable=self.mins_output,
-            font=self.FONT_MINS,
-            bg=self.BACKGROUND_TOP,
-            fg="white",
-        )
-        self.label_mins_output_label.pack(side="top")
-
-    def _init_quick_settings(self):
-        """Инициализация быстрых настроек (если включены)"""
-        # Проверяем, нужно ли показывать minutes entries
-        show_entries = self.sm.get("system.quick_settings.minutes_entries", True)
-
-        if show_entries:
-            self.frame_set_n_info = tk.Frame(self.main_window, bg=self.BACKGROUND_BOT)
-            self.frame_set_n_info.pack(padx=self.PADXY, pady=self.PADXY, fill=tk.X)
-
-            self.label_settings_description = tk.Label(
-                self.frame_set_n_info,
-                text="Timer Settings:",
-                font=self.FONT_LABELS,
-                bg=self.BACKGROUND_BOT,
-                fg="white",
-            )
-            self.label_settings_description.pack(side="top", padx=self.PADXY, pady=(0, 5))
-
-            self.frame_settings_labels = []
-            self.label_settings = []
-            self.entry_settings = []
-
-            timer_values = self.timer.get_timer_values()
-
-            for i in range(4):
-                frame = tk.Frame(self.frame_set_n_info, bg=self.BACKGROUND_BOT)
-                frame.pack(side="left", padx=self.PADXY, pady=self.PADXY, expand=True, fill=tk.X)
-                self.frame_settings_labels.append(frame)
-
-                label = tk.Label(
-                    frame,
-                    text=self.ENTRIES_LABELS_LIST[i],
-                    font=self.FONT_LABELS,
-                    bg=self.BACKGROUND_BOT,
-                    fg="white",
-                )
-                label.pack(padx=self.PADXY, side=tk.LEFT)
-                self.label_settings.append(label)
-
-                entry = tk.Entry(frame, width=self.ENTRY_WIDTH, justify=tk.RIGHT)
-                entry.insert(0, str(timer_values[i]))
-                entry.pack(padx=self.PADXY, side=tk.RIGHT)
-                self.entry_settings.append(entry)
-
-    def _init_buttons(self):
-        """Инициализация кнопок"""
-        self.frame_butt = tk.Frame(self.main_window, bg=self.BACKGROUND_BOT)
-        self.frame_butt.pack(padx=self.PADXY, pady=(0, self.PADXY), fill=tk.X)
-
-        # Создание кнопок из настроек
-        button_configs = [
-            ("pause_on_end", "Pause on End", self._toggle_pause_on_end),
-            ("media_api", "Media", self._toggle_media_api),
-            ("reset_timer", "↺ Reset", self._reset_timer),
-            ("sound_player", "♫ Sound", self._toggle_sound),
-            ("settings", "⚙", self._open_settings),
-            ("exit", "Exit", self._exit_app),
-        ]
-
-        self.buttons = []
-        for key, default_text, command in button_configs:
-            # Проверяем, нужно ли показывать эту кнопку
-            show_button = self.sm.get(f"system.quick_settings.{key}", True)
-
-            if show_button or key in [
-                "settings",
-                "exit",
-            ]:  # Кнопки настроек и выхода всегда показываем
-                text = self.BUTTONS_LABELS.get(key, default_text)
-                btn = tk.Button(
-                    self.frame_butt,
-                    text=text,
-                    command=command,
-                    font=self.FONT_BUTTONS,
-                    bg=self.BACKGROUND_BOT,
-                    fg="white",
-                    relief=tk.FLAT,
-                )
-                btn.pack(side="left", padx=self.PADXY_S, pady=self.PADXY_S, expand=True, fill=tk.X)
-                self.buttons.append(btn)
-
-                # Устанавливаем начальное состояние кнопок
-                if key == "pause_on_end":
-                    btn.config(
-                        relief=(
-                            tk.SUNKEN
-                            if self.sm.get("system.pause_on_end_enabled", False)
-                            else tk.RAISED
-                        )
-                    )
-                elif key == "media_api":
-                    btn.config(
-                        relief=(
-                            tk.SUNKEN
-                            if self.sm.get("system.media_api_enabled", True)
-                            else tk.RAISED
-                        )
-                    )
-                elif key == "sound_player":
-                    btn.config(
-                        relief=(
-                            tk.SUNKEN
-                            if self.sm.get("system.sound_player_enabled", False)
-                            else tk.RAISED
-                        )
-                    )
-
-    def _update_quick_settings_visibility(self):
-        """Обновление видимости quick settings"""
-        # Этот метод будет вызываться при изменении quick settings
-        # Для простоты перезагрузим весь GUI
-        # В реальном приложении можно обновлять только измененные виджеты
-
-        # Удаляем старые виджеты
-        if hasattr(self, "frame_set_n_info"):
-            self.frame_set_n_info.destroy()
-
-        # Переинициализируем quick settings
-        self._init_quick_settings()
-
-        # Обновляем кнопки
-        if hasattr(self, "frame_butt"):
-            self.frame_butt.destroy()
-        self._init_buttons()
-
-    def _bind_play_pause_to_frames(self):
-        """Привязка обработки кликов к фреймам"""
-        tag = "frames_for_info"
-
-        def add_tag_to_children(widget):
-            widget.bindtags((tag,) + widget.bindtags())
-            for child in widget.winfo_children():
-                add_tag_to_children(child)
-
-        for frame in [self.frame_info_minutes, self.frame_info_status]:
-            add_tag_to_children(frame)
-            frame.bind_class(tag, "<Button-1>", self._handle_click)
-
-    def _handle_click(self, event):
-        """Обработка клика по фреймам"""
-        if getattr(self, "_handling_click", False):
-            return
-
-        self._handling_click = True
-        try:
-            status_info = self.timer.get_status_info()
-            if status_info["status_type"] == "pause":
-                self.timer.start()
-            else:
-                self.timer.pause()
-        finally:
-            self._handling_click = False
-
-    # DONE не трогать, должно работать
-    def _handle_tick(self, action, arg=None):
-        """Обработка тиков таймера"""
-        if action == "schedule":
-            return self.main_window.after(arg, self.timer.count_tick)
-        elif action == "cancel" and arg:
-            self.main_window.after_cancel(arg)
+    def schedule_tick(self, action, delay=None):
+        if action == "cancel":
+            if hasattr(self, "_tick_job") and self._tick_job:
+                self.root.after_cancel(self._tick_job)
+                self._tick_job = None
+            return None
+        elif action == "schedule":
+            self._tick_job = self.root.after(delay, self.timer.count_tick)
+            return self._tick_job
         return None
 
-    def _update_gui(self):
-        """Обновление GUI на основе состояния таймера"""
+    def _init_ui(self):
+        """
+        ✅ Создаёт UI один раз при инициализации или полной пересборке
+        """
+        # Очищаем только если это не первый вызов
+        if hasattr(self, "_ui_initialized") and self._ui_initialized:
+            for widget in self.root.winfo_children():
+                widget.destroy()
+
+        self._ui_initialized = True
+
+        colors = self.settings.get_current_theme_colors()
+        fonts = self.settings.get_current_fonts()
+
+        # ✅ ИСПРАВЛЕНИЕ #5: Один фрейм для верхней части (без вложенности)
+        self.top_frame = tk.Frame(self.root, bg=colors["background_top"])
+        self.top_frame.pack(fill=tk.X, side=tk.TOP)
+
+        # Статус и таймер
+        self._create_status_section(self.top_frame, colors, fonts)
+
+        # ✅ Нижняя часть
+        self.bot_frame = tk.Frame(self.root, bg=colors["background_bot"])
+        self.bot_frame.pack(fill=tk.BOTH, expand=True, side=tk.BOTTOM)
+
+        # ✅ ИСПРАВЛЕНИЕ #3: Grid для правильного якорения кнопок
+        self._create_navigation_section(self.bot_frame, colors, fonts)
+
+        # Быстрые настройки
+        self._create_quick_settings_section(self.bot_frame, colors, fonts)
+
+    def _create_status_section(self, parent, colors, fonts):
+        """
+        ✅ Создаёт секцию статуса (исправляет проблему #5)
+        """
+        # ✅ Один контейнер вместо вложенных фреймов
+        status_container = tk.Frame(parent, bg=colors["background_top"], cursor="hand2")
+        status_container.pack(anchor=tk.CENTER, pady=20)
+        status_container.bind("<Button-1>", lambda e: self.toggle_start_pause())
+
         status_info = self.timer.get_status_info()
+        status_text = self.settings.get(
+            f"appearence.status_title.{status_info['status_type']}", "TIMER"
+        )
+        status_color = colors[f"status_{status_info['status_type']}"]
 
-        # Обновление времени
-        self.mins_output.set(status_info["minutes"])
+        # Статус
+        self.lbl_status = tk.Label(
+            status_container,
+            text=status_text,
+            font=fonts["status"],
+            fg=status_color,
+            bg=colors["background_top"],
+            cursor="hand2",
+        )
+        self.lbl_status.pack(pady=(0, 5))
+        self.lbl_status.bind("<Button-1>", lambda e: self.toggle_start_pause())
 
-        # Обновление статуса и цвета
-        status_type = status_info["status_type"]
-        self.output_status.set(self.STATUS_TITLE.get(status_type, status_type.upper()))
+        # Таймер
+        self.lbl_timer = tk.Label(
+            status_container,
+            text=status_info["minutes"],
+            font=fonts["minutes"],
+            fg=status_color,
+            bg=colors["background_top"],
+            cursor="hand2",
+        )
+        self.lbl_timer.pack(pady=(0, 5))
+        self.lbl_timer.bind("<Button-1>", lambda e: self.toggle_start_pause())
 
-        color_map = {"pause": self.COLOR_PAUSE, "focus": self.COLOR_WORK, "rest": self.COLOR_REST}
+        # Циклы
+        display_cycle = int(status_info["cycle_counter"]) + 1
+        max_cycles = int(status_info["max_cycles"])
 
-        color = color_map.get(status_type, self.COLOR_PAUSE)
+        self.lbl_cycles = tk.Label(
+            status_container,
+            text=f"Cycle: {display_cycle} / {max_cycles}",
+            font=fonts["labels"],
+            fg=colors["status_pause"],
+            bg=colors["background_top"],
+            cursor="hand2",
+        )
+        self.lbl_cycles.pack()
+        self.lbl_cycles.bind("<Button-1>", lambda e: self.toggle_start_pause())
 
-        # Обновляем цвет фона виджетов статуса
-        self.output_status_label.configure(bg=color)
-        self.label_mins_output_label.configure(bg=color)
+    def _create_navigation_section(self, parent, colors, fonts):
+        """
+        ✅ ИСПРАВЛЕНИЕ #3: Grid с weight для правильного распределения
+        Settings - слева, Navigation - центр, Exit - справа
+        """
+        nav_container = tk.Frame(parent, bg=colors["background_bot"])
+        nav_container.pack(fill=tk.X, pady=10, padx=10)
 
-        # Обновляем цвет фреймов
-        self.frame_info_status.configure(bg=color)
-        self.frame_info_minutes.configure(bg=color)
+        # ✅ Grid с 3 колонками: left(1), center(0), right(1)
+        nav_container.columnconfigure(0, weight=1)  # Settings - растягивается
+        nav_container.columnconfigure(1, weight=0)  # Navigation - фиксировано
+        nav_container.columnconfigure(2, weight=1)  # Exit - растягивается
 
-    # Обработчики кнопок
-    def _toggle_sound(self):
-        new_state = self.sm.toggle_setting("system.sound_player_enabled")
-        # Находим кнопку sound_player
-        for i, btn in enumerate(self.buttons):
-            if "♫" in btn.cget("text"):
-                btn.config(relief=tk.SUNKEN if new_state else tk.RAISED)
-                break
+        # Settings (слева)
+        settings_btn = self._create_button(
+            nav_container,
+            text=self.button_labels.get("settings", "⚙"),
+            command=self.open_settings_window,
+            colors=colors,
+            fonts=fonts,
+        )
+        settings_btn.grid(row=0, column=0, sticky=tk.W, padx=5)
 
-    def _toggle_media_api(self):
-        new_state = self.sm.toggle_setting("system.media_api_enabled")
-        # Находим кнопку media_api
-        for i, btn in enumerate(self.buttons):
-            if "Media" in btn.cget("text"):
-                btn.config(relief=tk.SUNKEN if new_state else tk.RAISED)
-                break
+        # Navigation (центр) - Reset, <<, >>
+        center_frame = tk.Frame(nav_container, bg=colors["background_bot"])
+        center_frame.grid(row=0, column=1, padx=10)
 
-    def _toggle_pause_on_end(self):
-        new_state = self.sm.toggle_setting("system.pause_on_end_enabled")
-        # Находим кнопку pause_on_end
-        for i, btn in enumerate(self.buttons):
-            if "Pause" in btn.cget("text"):
-                btn.config(relief=tk.SUNKEN if new_state else tk.RAISED)
-                break
+        self._create_button(
+            center_frame,
+            text=self.button_labels.get("reset_timer", "↺ Reset"),
+            command=self.timer.reset,
+            colors=colors,
+            fonts=fonts,
+        ).pack(side=tk.LEFT, padx=3)
 
-    def _reset_timer(self):
-        """Сброс таймера"""
-        entry_values = [entry.get() for entry in self.entry_settings]
+        # ✅ ИСПРАВЛЕНИЕ #2: Кнопка << с правильным вызовом
+        self._create_button(
+            center_frame,
+            text=self.button_labels.get("next_previous_buttons", ["<<", ">>"])[0],
+            command=lambda: self._step_phase_back(),
+            colors=colors,
+            fonts=fonts,
+        ).pack(side=tk.LEFT, padx=3)
 
-        if not self.timer.reset(entry_values):
-            mb.showerror("Error", "You must use float values in input fields!")
+        self._create_button(
+            center_frame,
+            text=self.button_labels.get("next_previous_buttons", ["<<", ">>"])[1],
+            command=lambda: self._step_phase_forward(),
+            colors=colors,
+            fonts=fonts,
+        ).pack(side=tk.LEFT, padx=3)
 
-    def _open_settings(self):
-        """Открытие окна настроек"""
-        SettingsWindow(self.main_window, self.sm, self._on_settings_applied)
+        # Exit (справа)
+        exit_btn = self._create_button(
+            nav_container,
+            text=self.button_labels.get("exit", "Exit"),
+            command=self._on_close,
+            colors=colors,
+            fonts=fonts,
+        )
+        exit_btn.grid(row=0, column=2, sticky=tk.E, padx=5)
 
-    def _on_settings_applied(self):
-        """Callback после применения настроек"""
-        # Обновляем GUI после применения настроек
-        self._update_gui()
-        self._apply_theme_to_widgets()
+    def _step_phase_back(self):
+        """
+        ✅ ИСПРАВЛЕНИЕ #2: Обёртка для step_in_phase с обновлением UI
+        """
+        self.timer.step_in_phase(schedule_tick=True, step_back=True)
+        # ✅ Явно обновляем UI после ручного вызова
+        self.root.after(50, self.update_timer_display)
 
-    def _exit_app(self):
-        """Выход из приложения"""
-        # self.timer._cancel_and_stop()
-        self.main_window.destroy()
+    def _step_phase_forward(self):
+        """
+        Обёртка для step_in_phase вперёд
+        """
+        self.timer.step_in_phase(schedule_tick=True, step_back=False)
+        self.root.after(50, self.update_timer_display)
+
+    def _create_quick_settings_section(self, parent, colors, fonts):
+        """
+        ✅ ИСПРАВЛЕНИЕ #4: Использует лейблы из конфига
+        """
+        qs_frame = tk.Frame(parent, bg=colors["background_bot"])
+        qs_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        quick_settings_map = {
+            "always_on_top": "system.always_on_top_enabled",
+            "pause_on_end": "system.pause_on_end_enabled",
+            "sound_player": "system.sound_player_enabled",
+            "media_api": "system.media_api_enabled",
+        }
+
+        for key, sys_key in quick_settings_map.items():
+            is_visible = self.settings.get(f"system.quick_settings.{key}", False)
+            if is_visible:
+                is_active = self.settings.get(sys_key, False)
+
+                # ✅ ИСПРАВЛЕНИЕ #4: Лейбл из конфига
+                btn_text = self.button_labels.get(key, key.replace("_", " ").title())
+
+                btn = self._create_button(
+                    qs_frame,
+                    text=btn_text,
+                    command=lambda k=key, s=sys_key: self.toggle_quick_setting(k, s),
+                    colors=colors,
+                    fonts=fonts,
+                    is_pressed=is_active,
+                )
+                btn.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
+
+    def _create_button(self, parent, text, command, colors, fonts, is_pressed=False):
+        """
+        Создаёт кнопку с единым стилем
+        """
+        bg = colors["button_pressed_bg"] if is_pressed else colors["button_bg"]
+        fg = colors["button_pressed_fg"] if is_pressed else colors["button_fg"]
+        relief = tk.SUNKEN if is_pressed else tk.RAISED
+
+        btn = tk.Button(
+            parent,
+            text=text,
+            command=command,
+            font=fonts["buttons"],
+            bg=bg,
+            fg=fg,
+            relief=relief,
+            activebackground=colors["button_pressed_bg"],
+            activeforeground=colors["button_pressed_fg"],
+            borderwidth=2,
+        )
+        return btn
+
+    def toggle_quick_setting(self, key, sys_key):
+        """
+        Переключает состояние быстрой настройки
+        """
+        self.settings.toggle_setting(sys_key)
+        # ✅ Не пересобираем весь UI, только обновляем кнопки
+        self.root.after(100, self._init_ui)
+
+    def toggle_start_pause(self):
+        """
+        Переключает Старт/Пауза
+        """
+        if self.timer.process_status in (3, 4):
+            self.timer.start()
+        else:
+            self.timer.pause()
+
+    def update_timer_display(self):
+        """
+        Обновляет только цифры и статус (без пересборки всего UI)
+        """
+        try:
+            if not hasattr(self, "lbl_status") or not hasattr(self, "lbl_timer"):
+                return
+
+            info = self.timer.get_status_info()
+            colors = self.settings.get_current_theme_colors()
+            fonts = self.settings.get_current_fonts()
+
+            status_text = self.settings.get(
+                f"appearence.status_title.{info['status_type']}", "TIMER"
+            )
+            status_color = colors[f"status_{info['status_type']}"]
+
+            self.lbl_status.config(text=status_text, fg=status_color, font=fonts["status"])
+            self.lbl_timer.config(text=info["minutes"], fg=status_color, font=fonts["minutes"])
+
+            # ✅ ИСПРАВЛЕНИЕ #1: Циклы отображаются корректно
+            display_cycle = int(info["cycle_counter"]) + 1
+            max_cycles = int(info["max_cycles"])
+            self.lbl_cycles.config(text=f"Cycle: {display_cycle} / {max_cycles}")
+
+            self.root.title(f"{status_text} - {info['minutes']}")
+
+            top_enabled = self.settings.get("system.always_on_top_enabled", False)
+            self.root.attributes("-topmost", top_enabled)
+
+        except Exception as e:
+            # ✅ Логирование ошибок вместо silent pass
+            print(f"Error updating timer display: {e}")
+
+    def _on_close(self):
+        """
+        ✅ Корректное закрытие приложения с очисткой ресурсов
+        """
+        if hasattr(self, "_tick_job") and self._tick_job:
+            self.root.after_cancel(self._tick_job)
+        self.timer._stop_audio()
+        self.root.quit()
+        self.root.destroy()
+
+    def open_settings_window(self):
+        """
+        Открывает окно настроек (проверка на уже открытое)
+        """
+        # ✅ Проверяем все Toplevel окна
+        for widget in self.root.winfo_children():
+            if isinstance(widget, tk.Toplevel) and widget.title() == "Settings":
+                widget.focus()
+                return
+
+        SettingsWindow(self.root, self.settings, self._init_ui)
+
+
+if __name__ == "__main__":
+    app = MyGUI()

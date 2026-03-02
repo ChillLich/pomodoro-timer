@@ -1,227 +1,296 @@
 import tkinter as tk
-from tkinter import messagebox as mb
+from pathlib import Path
+from tkinter import colorchooser, filedialog, messagebox, ttk
 
 
-class SettingsWindow:
-    def __init__(self, parent, settings_manager, apply_callback):
+class SettingsWindow(tk.Toplevel):
+    def __init__(self, parent, settings_manager, rebuild_callback):
+        super().__init__(parent)
         self.settings = settings_manager
-        self.apply_callback = apply_callback
+        self.rebuild_callback = rebuild_callback
 
-        # Создаем окно настроек
-        self.window = tk.Toplevel(parent)
-        self.window.title("Settings")
-        self.window.geometry("400x600")
-        self.window.resizable(False, False)
+        self.title("Settings")
+        self.geometry("550x500")
+        self.resizable(True, True)
 
-        # Переменные для хранения временных значений
-        self.temp_values = {}
-        self._setup_variables()
+        self.qs_vars = {}
+        self.user_theme_vars = {}
 
-        # Создаем интерфейс
-        self._create_widgets()
+        # ✅ Используем grid с 2 колонками для компактности
+        self.main_frame = tk.Frame(self)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Загружаем текущие значения
-        self._load_current_values()
+        # Левая колонка
+        self.left_frame = tk.Frame(self.main_frame)
+        self.left_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=5)
 
-        # Блокируем взаимодействие с родительским окном
-        self.window.transient(parent)
-        self.window.grab_set()
+        # Правая колонка
+        self.right_frame = tk.Frame(self.main_frame)
+        self.right_frame.grid(row=0, column=1, sticky=tk.NSEW, padx=5)
 
-        self.window.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.columnconfigure(1, weight=1)
+        self.main_frame.rowconfigure(0, weight=1)
 
-    def _setup_variables(self):
-        """Настройка переменных для хранения временных значений"""
-        # Таймерные значения
-        self.timer_entries = []
-        self.timer_vars = [tk.StringVar() for _ in range(4)]
+        # ✅ Левая колонка: Preset + Quick Settings
+        self.create_preset_frame(self.left_frame)
+        self.create_quick_settings_frame(self.left_frame)
 
-        # Quick settings
-        self.quick_settings_vars = {}
-        quick_settings = self.settings.get("system.quick_settings", {})
-        for key in quick_settings:
-            self.quick_settings_vars[key] = tk.BooleanVar(value=quick_settings[key])
+        # ✅ Правая колонка: Audio + Theme
+        self.create_audio_frame(self.right_frame)
+        self.create_theme_frame(self.right_frame)
 
-        # Тема
-        self.theme_var = tk.StringVar()
-
-        # Пользовательские цвета темы
-        self.user_theme_vars = {
-            "status_rest": tk.StringVar(value="#3BBF77"),
-            "status_pause": tk.StringVar(value="#808080"),
-            "status_focus": tk.StringVar(value="#3B77BC"),
-            "background_top": tk.StringVar(value="#1E1E1E"),
-            "background_bot": tk.StringVar(value="#2D2D2D"),
-        }
-
-    def _create_widgets(self):
-        """Создание виджетов окна настроек"""
-        main_frame = tk.Frame(self.window)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        # Canvas с прокруткой
-        canvas = tk.Canvas(main_frame)
-        scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas)
-
-        scrollable_frame.bind(
-            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        # Кнопки внизу
+        btn_frame = tk.Frame(self)
+        btn_frame.pack(side=tk.BOTTOM, pady=10)
+        tk.Button(btn_frame, text="Save & Close", command=self.save_and_close, width=12).pack(
+            side=tk.LEFT, padx=10
+        )
+        tk.Button(btn_frame, text="Cancel", command=self.destroy, width=12).pack(
+            side=tk.LEFT, padx=10
         )
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+    def create_preset_frame(self, parent):
+        """Секция настройки пресетов таймера"""
+        frame = tk.LabelFrame(parent, text="Preset Settings", padx=10, pady=10)
+        frame.pack(fill=tk.X, pady=5)
 
-        # Раздел Timer Settings
-        timer_frame = tk.LabelFrame(scrollable_frame, text="Timer Settings", padx=10, pady=10)
-        timer_frame.pack(fill=tk.X, pady=(0, 10))
-
-        labels = self.settings.get(
-            "appearence.quick_settings_minutes_entries_labels",
-            ["Focus:", "Short:", "Long:", "Cycles:"],
+        # Пояснение о User Preset
+        info_label = tk.Label(
+            frame,
+            text="Select preset. 'User' can be customized below.",
+            font=("Helvetica", 8),
+            justify=tk.LEFT,
+            anchor=tk.W,
         )
+        info_label.pack(fill=tk.X, pady=(0, 5))
 
-        for i, label_text in enumerate(labels):
-            frame = tk.Frame(timer_frame)
-            frame.pack(fill=tk.X, pady=2)
+        # Выбор текущего пресета
+        preset_frame = tk.Frame(frame)
+        preset_frame.pack(fill=tk.X, pady=5)
 
-            tk.Label(frame, text=label_text, width=10).pack(side=tk.LEFT)
-            entry = tk.Entry(frame, textvariable=self.timer_vars[i], width=10)
-            entry.pack(side=tk.RIGHT)
-            self.timer_entries.append(entry)
+        tk.Label(preset_frame, text="Current:", width=8, anchor=tk.W).pack(side=tk.LEFT)
 
-        # Quick Settings
-        quick_frame = tk.LabelFrame(scrollable_frame, text="Quick Settings", padx=10, pady=10)
-        quick_frame.pack(fill=tk.X, pady=(0, 10))
+        presets = ["small", "medium", "big", "user"]
+        current_preset = self.settings.get("timer.current_preset", "medium")
+        self.preset_combo = ttk.Combobox(preset_frame, values=presets, state="readonly", width=10)
+        self.preset_combo.set(current_preset)
+        self.preset_combo.pack(side=tk.LEFT, padx=5)
 
-        quick_labels = self.settings.get("appearence.quick_settings_buttons_labels", {})
+        # Настройки User Preset
+        user_frame = tk.LabelFrame(frame, text="User Preset Values", padx=5, pady=5)
+        user_frame.pack(fill=tk.X, pady=5)
 
-        for key, var in self.quick_settings_vars.items():
-            if key in ["minutes_entries", "next_previous_buttons"]:
-                continue  # Эти настройки обрабатываются отдельно
+        labels = ["Focus", "Short", "Long", "Cycles"]
+        self.user_entries = []
 
-            label_text = quick_labels.get(key, key.replace("_", " ").title())
-            cb = tk.Checkbutton(quick_frame, text=label_text, variable=var)
-            cb.pack(anchor=tk.W, pady=2)
+        current_user = self.settings.get("timer.user", [0.0, 0.0, 0.0, 0.0])
+        if not any(current_user):
+            current_user = [25, 5, 15, 4]
 
-        # Theme Settings
-        theme_frame = tk.LabelFrame(scrollable_frame, text="Theme Settings", padx=10, pady=10)
-        theme_frame.pack(fill=tk.X, pady=(0, 10))
-
-        # Радиокнопки выбора темы
-        themes = [("Light", "light"), ("Dark", "dark"), ("Custom", "user")]
-        for text, value in themes:
-            rb = tk.Radiobutton(
-                theme_frame,
-                text=text,
-                variable=self.theme_var,
-                value=value,
-                command=self._on_theme_change,
+        for i, label in enumerate(labels):
+            row = tk.Frame(user_frame)
+            row.pack(fill=tk.X, pady=1)
+            tk.Label(row, text=label, width=8, anchor=tk.W, font=("Helvetica", 9)).pack(
+                side=tk.LEFT
             )
-            rb.pack(anchor=tk.W)
+            entry = tk.Entry(row, width=8)
+            entry.insert(0, str(current_user[i]))
+            entry.pack(side=tk.LEFT, padx=5)
+            self.user_entries.append(entry)
 
-        # Поля для пользовательской темы
-        self.user_theme_frame = tk.Frame(theme_frame)
+    def create_audio_frame(self, parent):
+        """Секция путей к аудиофайлам"""
+        frame = tk.LabelFrame(parent, text="Audio Paths", padx=10, pady=10)
+        frame.pack(fill=tk.X, pady=5)
 
+        self.path_work = tk.Entry(frame, width=35)
+        self.path_work.insert(0, self.settings.get("system.path_to_focus_track", "work.mp3"))
+        self.path_work.grid(row=0, column=0, padx=2, pady=2, sticky=tk.EW)
+        tk.Button(
+            frame, text="...", command=lambda: self.browse_file(self.path_work), width=3
+        ).grid(row=0, column=1, pady=2)
+
+        self.path_rest = tk.Entry(frame, width=35)
+        self.path_rest.insert(0, self.settings.get("system.path_to_rest_track", "rest.mp3"))
+        self.path_rest.grid(row=1, column=0, padx=2, pady=2, sticky=tk.EW)
+        tk.Button(
+            frame, text="...", command=lambda: self.browse_file(self.path_rest), width=3
+        ).grid(row=1, column=1, pady=2)
+
+        frame.columnconfigure(0, weight=1)
+
+    def create_theme_frame(self, parent):
+        """Секция выбора и настройки темы"""
+        frame = tk.LabelFrame(parent, text="Theme", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        # Выбор темы
+        theme_frame = tk.Frame(frame)
+        theme_frame.pack(fill=tk.X, pady=5)
+
+        tk.Label(theme_frame, text="Theme:", width=8, anchor=tk.W).pack(side=tk.LEFT)
+
+        themes = ["light", "dark", "user"]
+        current_theme = self.settings.get("appearence.themes.current_preset", "dark")
+        self.theme_combo = ttk.Combobox(theme_frame, values=themes, state="readonly", width=10)
+        self.theme_combo.set(current_theme)
+        self.theme_combo.pack(side=tk.LEFT, padx=5)
+
+        self.theme_combo.bind("<<ComboboxSelected>>", self._on_theme_change)
+
+        # Настройка цветов только для user темы
+        self.user_colors_frame = tk.LabelFrame(frame, text="User Colors", padx=5, pady=5)
+
+        if current_theme == "user":
+            self.user_colors_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        else:
+            self.user_colors_frame.pack_forget()
+
+        current_user_theme = self.settings.get("appearence.themes.user", {})
+
+        # ✅ Сокращённый список цветов для компактности
         color_labels = [
-            ("Rest Status Color:", "status_rest"),
-            ("Pause Status Color:", "status_pause"),
-            ("Focus Status Color:", "status_focus"),
-            ("Top Background:", "background_top"),
-            ("Bottom Background:", "background_bot"),
+            ("status_focus", "Focus"),
+            ("status_rest", "Rest"),
+            ("background_top", "BG Top"),
+            ("background_bot", "BG Bot"),
+            ("button_bg", "Btn BG"),
+            ("button_pressed_bg", "Btn Press"),
         ]
 
-        for label_text, key in color_labels:
-            frame = tk.Frame(self.user_theme_frame)
-            frame.pack(fill=tk.X, pady=2)
+        self.user_theme_vars = {}
+        for key, label in color_labels:
+            row = tk.Frame(self.user_colors_frame)
+            row.pack(fill=tk.X, pady=1)
 
-            tk.Label(frame, text=label_text, width=20).pack(side=tk.LEFT)
-            entry = tk.Entry(frame, textvariable=self.user_theme_vars[key], width=10)
-            entry.pack(side=tk.RIGHT)
+            tk.Label(row, text=label, width=10, anchor=tk.W, font=("Helvetica", 9)).pack(
+                side=tk.LEFT
+            )
 
-        # Кнопки Apply и Cancel
-        button_frame = tk.Frame(scrollable_frame)
-        button_frame.pack(fill=tk.X, pady=(10, 0))
+            default_colors = {
+                "status_focus": "#3B77BC",
+                "status_rest": "#3BBF77",
+                "background_top": "#1E1E1E",
+                "background_bot": "#2D2D2D",
+                "button_bg": "#3D3D3D",
+                "button_pressed_bg": "#3B77BC",
+            }
+            current_color = current_user_theme.get(key, default_colors[key])
 
-        tk.Button(button_frame, text="Cancel", command=self._on_cancel, width=10).pack(
-            side=tk.RIGHT, padx=5
-        )
-        tk.Button(button_frame, text="Apply", command=self._on_apply, width=10).pack(
-            side=tk.RIGHT, padx=5
-        )
+            entry = tk.Entry(row, width=10)
+            entry.insert(0, current_color)
+            entry.pack(side=tk.LEFT, padx=5)
+            self.user_theme_vars[key] = entry
 
-        # Упаковка canvas
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            btn = tk.Button(
+                row, text="🎨", command=lambda k=key, e=entry: self._pick_color(e), width=3
+            )
+            btn.pack(side=tk.LEFT)
 
-    def _load_current_values(self):
-        """Загрузка текущих значений из настроек"""
-        # Загружаем значения таймера
-        timer_values = self.settings.get("timer.user", [])
-        if timer_values:
-            for i, value in enumerate(timer_values):
-                if i < 4:
-                    self.timer_vars[i].set(str(value))
-
-        # Загружаем текущую тему
-        current_theme = self.settings.get("appearence.themes.current_preset", "dark")
-        self.theme_var.set(current_theme)
-
-        # Загружаем цвета пользовательской темы
-        user_theme = self.settings.get("appearence.themes.user", {})
-        for key, var in self.user_theme_vars.items():
-            if key in user_theme:
-                var.set(user_theme[key])
-
-        # Показываем/скрываем поля пользовательской темы
-        self._on_theme_change()
-
-    def _on_theme_change(self):
-        """Обработка изменения темы"""
-        if self.theme_var.get() == "user":
-            self.user_theme_frame.pack(fill=tk.X, pady=(10, 0))
+    def _on_theme_change(self, event):
+        """Показывает/скрывает редактор цветов user темы"""
+        selected = self.theme_combo.get()
+        if selected == "user":
+            self.user_colors_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         else:
-            self.user_theme_frame.pack_forget()
+            self.user_colors_frame.pack_forget()
 
-    def _on_apply(self):
-        """Применение настроек"""
+    def _pick_color(self, entry):
+        """Открывает выбор цвета"""
+        current = entry.get()
+        color = colorchooser.askcolor(color=current)[1]
+        if color:
+            entry.delete(0, tk.END)
+            entry.insert(0, color)
+
+    def create_quick_settings_frame(self, parent):
+        """Секция управления видимостью и состоянием быстрых настроек"""
+        frame = tk.LabelFrame(parent, text="Quick Settings", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        qs_map = {
+            "always_on_top": "system.always_on_top_enabled",
+            "pause_on_end": "system.pause_on_end_enabled",
+            "sound_player": "system.sound_player_enabled",
+            "media_api": "system.media_api_enabled",
+        }
+
+        for vis_key, state_key in qs_map.items():
+            vis_val = self.settings.get(f"system.quick_settings.{vis_key}", False)
+            vis_var = tk.BooleanVar(value=vis_val)
+
+            state_val = self.settings.get(state_key, False)
+            state_var = tk.BooleanVar(value=state_val)
+
+            row_frame = tk.Frame(frame)
+            row_frame.pack(fill=tk.X, pady=1)
+
+            tk.Label(
+                row_frame,
+                text=vis_key.replace("_", " ").title(),
+                width=14,
+                anchor=tk.W,
+                font=("Helvetica", 9),
+            ).pack(side=tk.LEFT)
+
+            tk.Checkbutton(row_frame, text="Show", variable=vis_var, indicatoron=True).pack(
+                side=tk.LEFT
+            )
+            tk.Checkbutton(row_frame, text="On", variable=state_var, indicatoron=True).pack(
+                side=tk.LEFT
+            )
+
+            self.qs_vars[vis_key] = {
+                "vis": vis_var,
+                "state": state_var,
+                "state_key": state_key,
+                "vis_key": vis_key,
+            }
+
+    def browse_file(self, entry_widget):
+        filename = filedialog.askopenfilename(
+            filetypes=[("MP3 Files", "*.mp3"), ("All Files", "*.*")]
+        )
+        if filename:
+            entry_widget.delete(0, tk.END)
+            entry_widget.insert(0, filename)
+
+    def save_and_close(self):
+        """Сохраняет все изменения и закрывает окно"""
+        # 1. Сохранение пресета
+        selected_preset = self.preset_combo.get()
+        self.settings.set_val("timer.current_preset", selected_preset)
+
+        # 2. Сохранение User Preset значений
         try:
-            # Сохраняем значения таймера
-            timer_values = []
-            for var in self.timer_vars:
-                value = var.get().strip()
-                if value:
-                    timer_values.append(float(value))
-                else:
-                    timer_values.append(0.0)
+            user_values = [float(e.get()) for e in self.user_entries]
+            self.settings.set_val("timer.user", user_values)
+        except ValueError:
+            messagebox.showerror("Error", "Please enter valid numbers for User Preset")
+            return
 
-            self.settings.set_val("timer.user", timer_values)
+        # 3. Сохранение темы
+        selected_theme = self.theme_combo.get()
+        self.settings.set_val("appearence.themes.current_preset", selected_theme)
 
-            # Сохраняем quick settings
-            for key, var in self.quick_settings_vars.items():
-                self.settings.set_val(f"system.quick_settings.{key}", var.get())
+        # 4. Сохранение цветов user темы
+        if selected_theme == "user":
+            user_theme_colors = {}
+            for key, entry in self.user_theme_vars.items():
+                user_theme_colors[key] = entry.get()
+            self.settings.set_val("appearence.themes.user", user_theme_colors)
 
-            # Сохраняем тему
-            theme_name = self.theme_var.get()
-            self.settings.set_val("appearence.themes.current_preset", theme_name)
+        # 5. Сохранение путей
+        self.settings.set_val("system.path_to_focus_track", self.path_work.get())
+        self.settings.set_val("system.path_to_rest_track", self.path_rest.get())
 
-            # Сохраняем пользовательскую тему
-            if theme_name == "user":
-                user_theme = {}
-                for key, var in self.user_theme_vars.items():
-                    user_theme[key] = var.get()
-                self.settings.set_val("appearence.themes.user", user_theme)
+        # 6. Сохранение Quick Settings
+        for key, data in self.qs_vars.items():
+            self.settings.set_val(f"system.quick_settings.{data['vis_key']}", data["vis"].get())
+            self.settings.set_val(data["state_key"], data["state"].get())
 
-            # Сохраняем в файл
-            self.settings.save()
+        self.settings.save()
 
-            # Вызываем callback для обновления главного окна
-            self.apply_callback()
-
-            # Закрываем окно
-            self.window.destroy()
-
-        except ValueError as e:
-            mb.showerror("Error", f"Invalid value: {str(e)}")
-
-    def _on_cancel(self):
-        """Отмена изменений"""
-        self.window.destroy()
+        self.rebuild_callback()
+        self.destroy()
