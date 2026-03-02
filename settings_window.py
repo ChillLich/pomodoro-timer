@@ -4,11 +4,20 @@ from tkinter import colorchooser, filedialog, messagebox, ttk
 
 
 class SettingsWindow(tk.Toplevel):
+    """Модальное окно для расширенных настроек приложения."""
+
     def __init__(self, parent, settings_manager, rebuild_callback):
+        """
+        Инициализация окна настроек.
+
+        Args:
+            parent: Родительское окно Tkinter.
+            settings_manager: Экземпляр SettingsManager.
+            rebuild_callback: Функция обратного вызова для обновления главного UI.
+        """
         super().__init__(parent)
         self.settings = settings_manager
         self.rebuild_callback = rebuild_callback
-
         self.title("Settings")
         self.geometry("550x500")
         self.resizable(True, True)
@@ -16,15 +25,12 @@ class SettingsWindow(tk.Toplevel):
         self.qs_vars = {}
         self.user_theme_vars = {}
 
-        # ✅ Используем grid с 2 колонками для компактности
         self.main_frame = tk.Frame(self)
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Левая колонка
         self.left_frame = tk.Frame(self.main_frame)
         self.left_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=5)
 
-        # Правая колонка
         self.right_frame = tk.Frame(self.main_frame)
         self.right_frame.grid(row=0, column=1, sticky=tk.NSEW, padx=5)
 
@@ -32,15 +38,11 @@ class SettingsWindow(tk.Toplevel):
         self.main_frame.columnconfigure(1, weight=1)
         self.main_frame.rowconfigure(0, weight=1)
 
-        # ✅ Левая колонка: Preset + Quick Settings
         self.create_preset_frame(self.left_frame)
         self.create_quick_settings_frame(self.left_frame)
-
-        # ✅ Правая колонка: Audio + Theme
         self.create_audio_frame(self.right_frame)
         self.create_theme_frame(self.right_frame)
 
-        # Кнопки внизу
         btn_frame = tk.Frame(self)
         btn_frame.pack(side=tk.BOTTOM, pady=10)
         tk.Button(btn_frame, text="Save & Close", command=self.save_and_close, width=12).pack(
@@ -51,11 +53,10 @@ class SettingsWindow(tk.Toplevel):
         )
 
     def create_preset_frame(self, parent):
-        """Секция настройки пресетов таймера"""
+        """Создает секцию выбора и настройки пресетов таймера."""
         frame = tk.LabelFrame(parent, text="Preset Settings", padx=10, pady=10)
         frame.pack(fill=tk.X, pady=5)
 
-        # Пояснение о User Preset
         info_label = tk.Label(
             frame,
             text="Select preset. 'User' can be customized below.",
@@ -65,11 +66,10 @@ class SettingsWindow(tk.Toplevel):
         )
         info_label.pack(fill=tk.X, pady=(0, 5))
 
-        # Выбор текущего пресета
         preset_frame = tk.Frame(frame)
         preset_frame.pack(fill=tk.X, pady=5)
 
-        tk.Label(preset_frame, text="Current:", width=8, anchor=tk.W).pack(side=tk.LEFT)
+        tk.Label(preset_frame, text="Current: ", width=8, anchor=tk.W).pack(side=tk.LEFT)
 
         presets = ["small", "medium", "big", "user"]
         current_preset = self.settings.get("timer.current_preset", "medium")
@@ -77,7 +77,6 @@ class SettingsWindow(tk.Toplevel):
         self.preset_combo.set(current_preset)
         self.preset_combo.pack(side=tk.LEFT, padx=5)
 
-        # Настройки User Preset
         user_frame = tk.LabelFrame(frame, text="User Preset Values", padx=5, pady=5)
         user_frame.pack(fill=tk.X, pady=5)
 
@@ -100,7 +99,7 @@ class SettingsWindow(tk.Toplevel):
             self.user_entries.append(entry)
 
     def create_audio_frame(self, parent):
-        """Секция путей к аудиофайлам"""
+        """Создает секцию выбора путей к аудиофайлам."""
         frame = tk.LabelFrame(parent, text="Audio Paths", padx=10, pady=10)
         frame.pack(fill=tk.X, pady=5)
 
@@ -121,15 +120,17 @@ class SettingsWindow(tk.Toplevel):
         frame.columnconfigure(0, weight=1)
 
     def create_theme_frame(self, parent):
-        """Секция выбора и настройки темы"""
+        """
+        Создает секцию выбора темы и редактор цветов.
+        Исправление #2: Добавлены missing цвета (status_pause, button_pressed_fg).
+        """
         frame = tk.LabelFrame(parent, text="Theme", padx=10, pady=10)
         frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        # Выбор темы
         theme_frame = tk.Frame(frame)
         theme_frame.pack(fill=tk.X, pady=5)
 
-        tk.Label(theme_frame, text="Theme:", width=8, anchor=tk.W).pack(side=tk.LEFT)
+        tk.Label(theme_frame, text="Theme: ", width=8, anchor=tk.W).pack(side=tk.LEFT)
 
         themes = ["light", "dark", "user"]
         current_theme = self.settings.get("appearence.themes.current_preset", "dark")
@@ -139,7 +140,6 @@ class SettingsWindow(tk.Toplevel):
 
         self.theme_combo.bind("<<ComboboxSelected>>", self._on_theme_change)
 
-        # Настройка цветов только для user темы
         self.user_colors_frame = tk.LabelFrame(frame, text="User Colors", padx=5, pady=5)
 
         if current_theme == "user":
@@ -149,14 +149,16 @@ class SettingsWindow(tk.Toplevel):
 
         current_user_theme = self.settings.get("appearence.themes.user", {})
 
-        # ✅ Сокращённый список цветов для компактности
+        # Расширенный список цветов для настройки
         color_labels = [
             ("status_focus", "Focus"),
             ("status_rest", "Rest"),
+            ("status_pause", "Pause"),  # Добавлено
             ("background_top", "BG Top"),
             ("background_bot", "BG Bot"),
             ("button_bg", "Btn BG"),
             ("button_pressed_bg", "Btn Press"),
+            ("button_pressed_fg", "Btn Text"),  # Добавлено
         ]
 
         self.user_theme_vars = {}
@@ -171,10 +173,12 @@ class SettingsWindow(tk.Toplevel):
             default_colors = {
                 "status_focus": "#3B77BC",
                 "status_rest": "#3BBF77",
+                "status_pause": "#808080",  # Default added
                 "background_top": "#1E1E1E",
                 "background_bot": "#2D2D2D",
                 "button_bg": "#3D3D3D",
                 "button_pressed_bg": "#3B77BC",
+                "button_pressed_fg": "#FFFFFF",  # Default added
             }
             current_color = current_user_theme.get(key, default_colors[key])
 
@@ -189,7 +193,7 @@ class SettingsWindow(tk.Toplevel):
             btn.pack(side=tk.LEFT)
 
     def _on_theme_change(self, event):
-        """Показывает/скрывает редактор цветов user темы"""
+        """Показывает или скрывает редактор цветов в зависимости от выбранной темы."""
         selected = self.theme_combo.get()
         if selected == "user":
             self.user_colors_frame.pack(fill=tk.BOTH, expand=True, pady=5)
@@ -197,7 +201,7 @@ class SettingsWindow(tk.Toplevel):
             self.user_colors_frame.pack_forget()
 
     def _pick_color(self, entry):
-        """Открывает выбор цвета"""
+        """Открывает диалог выбора цвета и обновляет поле ввода."""
         current = entry.get()
         color = colorchooser.askcolor(color=current)[1]
         if color:
@@ -205,7 +209,7 @@ class SettingsWindow(tk.Toplevel):
             entry.insert(0, color)
 
     def create_quick_settings_frame(self, parent):
-        """Секция управления видимостью и состоянием быстрых настроек"""
+        """Создает секцию управления видимостью и состоянием быстрых настроек."""
         frame = tk.LabelFrame(parent, text="Quick Settings", padx=10, pady=10)
         frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
@@ -249,6 +253,7 @@ class SettingsWindow(tk.Toplevel):
             }
 
     def browse_file(self, entry_widget):
+        """Открывает диалог выбора файла для настройки путей."""
         filename = filedialog.askopenfilename(
             filetypes=[("MP3 Files", "*.mp3"), ("All Files", "*.*")]
         )
@@ -257,12 +262,10 @@ class SettingsWindow(tk.Toplevel):
             entry_widget.insert(0, filename)
 
     def save_and_close(self):
-        """Сохраняет все изменения и закрывает окно"""
-        # 1. Сохранение пресета
+        """Сохраняет все изменения в SettingsManager и закрывает окно."""
         selected_preset = self.preset_combo.get()
         self.settings.set_val("timer.current_preset", selected_preset)
 
-        # 2. Сохранение User Preset значений
         try:
             user_values = [float(e.get()) for e in self.user_entries]
             self.settings.set_val("timer.user", user_values)
@@ -270,27 +273,22 @@ class SettingsWindow(tk.Toplevel):
             messagebox.showerror("Error", "Please enter valid numbers for User Preset")
             return
 
-        # 3. Сохранение темы
         selected_theme = self.theme_combo.get()
         self.settings.set_val("appearence.themes.current_preset", selected_theme)
 
-        # 4. Сохранение цветов user темы
         if selected_theme == "user":
             user_theme_colors = {}
             for key, entry in self.user_theme_vars.items():
                 user_theme_colors[key] = entry.get()
             self.settings.set_val("appearence.themes.user", user_theme_colors)
 
-        # 5. Сохранение путей
         self.settings.set_val("system.path_to_focus_track", self.path_work.get())
         self.settings.set_val("system.path_to_rest_track", self.path_rest.get())
 
-        # 6. Сохранение Quick Settings
         for key, data in self.qs_vars.items():
             self.settings.set_val(f"system.quick_settings.{data['vis_key']}", data["vis"].get())
             self.settings.set_val(data["state_key"], data["state"].get())
 
         self.settings.save()
-
         self.rebuild_callback()
         self.destroy()
