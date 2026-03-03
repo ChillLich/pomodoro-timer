@@ -32,20 +32,20 @@ class MyGUI:
             },
         )
 
-        # ✅ Инициализация переменных для job'ов
+        # Инициализация переменных для job'ов
         self._rebuild_job = None
         self._tick_job = None
         self._resize_job = None
         self.qs_buttons = {}
         self.nav_buttons = []
 
-        # ✅ Храним ссылки на все контейнеры для обновления
+        # Храним ссылки на все контейнеры для обновления
         self.all_frames = []
 
-        # ✅ Загружаем размеры из настроек (или используем дефолтные)
+        # Загружаем размеры из настроек (или используем дефолтные)
         self._apply_window_geometry()
 
-        # ✅ Регистрируем обработчик изменения размера окна
+        # Регистрируем обработчик изменения размера окна
         self.root.bind("<Configure>", self._on_window_resize)
 
         self.settings.add_callback(self._on_settings_changed)
@@ -61,7 +61,7 @@ class MyGUI:
         if self.timer.process_status not in (3, 4):
             self.timer.start()
 
-        # ✅ Регистрация обработчика закрытия окна
+        # Регистрация обработчика закрытия окна
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self.root.mainloop()
@@ -153,26 +153,25 @@ class MyGUI:
     def _update_ui_config(self):
         """
         Обновляет конфигурацию UI (цвета, шрифты, видимость кнопок) без пересоздания виджетов.
-        ✅ ИСПРАВЛЕНИЕ: Рекурсивное обновление всех фреймов и виджетов
         """
         colors = self.settings.get_current_theme_colors()
         fonts = self.settings.get_current_fonts()
 
-        # ✅ Обновляем все фреймы рекурсивно
+        # Обновляем все фреймы рекурсивно
         self._update_all_frames_colors(self.root, colors)
 
-        # ✅ Обновляем таймер
+        # Обновляем таймер
         self.update_timer_display()
 
-        # ✅ Обновляем кнопки быстрых настроек
+        # Обновляем кнопки быстрых настроек
         self._update_quick_settings_buttons(colors, fonts)
 
-        # ✅ Обновляем кнопки навигации
+        # Обновляем кнопки навигации
         self._update_all_button_colors(colors, fonts)
 
     def _update_all_frames_colors(self, widget, colors):
         """
-        ✅ НОВОЕ: Рекурсивно обновляет цвета всех фреймов и их содержимого.
+        Рекурсивно обновляет цвета всех фреймов и их содержимого.
         """
         for child in widget.winfo_children():
             if isinstance(child, tk.Frame):
@@ -209,9 +208,9 @@ class MyGUI:
 
     def _update_all_button_colors(self, colors, fonts):
         """
-        ✅ Обновляет цвета всех кнопок в интерфейсе.
+        Обновляет цвета всех кнопок в интерфейсе.
         """
-        # ✅ Обновляем кнопки навигации
+        # Обновляем кнопки навигации
         for btn in self.nav_buttons:
             try:
                 btn.config(
@@ -224,13 +223,12 @@ class MyGUI:
             except Exception:
                 pass
 
-        # ✅ Обновляем кнопки быстрых настроек
+        # Обновляем кнопки быстрых настроек
         self._update_quick_settings_buttons(colors, fonts)
 
     def _update_quick_settings_buttons(self, colors, fonts):
         """
         Обновляет существующие кнопки быстрых настроек.
-        ✅ ИСПРАВЛЕНИЕ: Проверяем наличие кнопки в словаре перед обновлением
         """
         if not hasattr(self, "qs_buttons") or not self.qs_buttons:
             return
@@ -242,13 +240,13 @@ class MyGUI:
             "media_api": "system.media_api_enabled",
         }
 
-        # ✅ Сначала скрываем все кнопки
+        # Сначала скрываем все кнопки
         for btn in self.qs_buttons.values():
             btn.pack_forget()
 
-        # ✅ Обновляем и показываем только видимые кнопки
+        # Обновляем и показываем только видимые кнопки
         for key, sys_key in quick_settings_map.items():
-            # ✅ ПРОВЕРКА: кнопка должна существовать в словаре
+            # кнопка должна существовать в словаре
             if key not in self.qs_buttons:
                 continue
 
@@ -268,7 +266,7 @@ class MyGUI:
                     font=fonts["buttons"],
                 )
                 btn.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
-            # ✅ Если кнопка не видима - она остаётся скрытой (pack_forget выше)
+            # Если кнопка не видима - она остаётся скрытой (pack_forget выше)
 
     def _create_status_section(self, parent, colors, fonts):
         """Создает секцию отображения статуса и времени таймера."""
@@ -322,7 +320,7 @@ class MyGUI:
     def _create_navigation_section(self, parent, colors, fonts):
         """
         Создает секцию навигации.
-        ✅ Сохраняет ссылки на кнопки в self.nav_buttons
+        Сохраняет ссылки на кнопки в self.nav_buttons
         """
         nav_container = tk.Frame(parent, bg=colors["background_bot"])
         nav_container.pack(fill=tk.X, pady=10, padx=10)
@@ -332,7 +330,7 @@ class MyGUI:
         nav_container.columnconfigure(1, weight=0)
         nav_container.columnconfigure(2, weight=1)
 
-        # ✅ Очищаем список кнопок перед созданием новых
+        # Очищаем список кнопок перед созданием новых
         self.nav_buttons = []
 
         settings_btn = self._create_button(
@@ -402,7 +400,6 @@ class MyGUI:
     def _create_quick_settings_section(self, parent, colors, fonts):
         """
         Создает панель быстрых настроек.
-        ✅ ИСПРАВЛЕНИЕ: Создаём все кнопки заранее, независимо от видимости
         """
         qs_frame = tk.Frame(parent, bg=colors["background_bot"])
         qs_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -417,7 +414,6 @@ class MyGUI:
 
         self.qs_buttons = {}
 
-        # ✅ СОЗДАЁМ все кнопки заранее, даже если они скрыты
         for key, sys_key in quick_settings_map.items():
             is_visible = self.settings.get(f"system.quick_settings.{key}", False)
             is_active = self.settings.get(sys_key, False)
@@ -432,10 +428,10 @@ class MyGUI:
                 is_pressed=is_active,
             )
 
-            # ✅ Сохраняем ссылку на кнопку независимо от видимости
+            # Сохраняем ссылку на кнопку независимо от видимости
             self.qs_buttons[key] = btn
 
-            # ✅ Показываем только если кнопка должна быть видима
+            # Показываем только если кнопка должна быть видима
             if is_visible:
                 btn.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
             else:
@@ -515,7 +511,7 @@ class MyGUI:
         """
         Корректно закрывает приложение, останавливая таймер и аудио.
         """
-        # ✅ Отменяем все запланированные задачи
+        # Отменяем все запланированные задачи
         if self._tick_job:
             self.root.after_cancel(self._tick_job)
         if self._rebuild_job:
@@ -523,13 +519,13 @@ class MyGUI:
         if self._resize_job:
             self.root.after_cancel(self._resize_job)
 
-        # ✅ Сохраняем текущие размеры окна
+        # Сохраняем текущие размеры окна
         self._save_window_size()
 
-        # ✅ Сохраняем настройки в файл
+        # Сохраняем настройки в файл
         self.settings.save()
 
-        # ✅ Останавливаем аудио
+        # Останавливаем аудио
         self.timer._stop_audio()
 
         self.root.quit()

@@ -43,6 +43,10 @@ class Timer:
         if preset_name == "user" and not self.list_with_min_values:
             self.list_with_min_values = self.settings.get("timer.medium", [25, 5, 15, 4])
 
+        # Гарантируем что Cycles (индекс 3) - целое число
+        if len(self.list_with_min_values) >= 4:
+            self.list_with_min_values[3] = int(self.list_with_min_values[3])
+
         # Получаем пути.
         path_to_work_str = self.settings.get("system.path_to_focus_track", "work.mp3")
         path_to_rest_str = self.settings.get("system.path_to_rest_track", "rest.mp3")

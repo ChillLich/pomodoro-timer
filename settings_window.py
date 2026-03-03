@@ -122,9 +122,6 @@ class SettingsWindow(tk.Toplevel):
     def create_theme_frame(self, parent):
         """
         Секция выбора и настройки темы.
-        Изменения:
-        1. Порядок цветов соответствует config.py.
-        2. Добавлены дружелюбные названия для интерфейса.
         """
         frame = tk.LabelFrame(parent, text="Theme", padx=10, pady=10)
         frame.pack(fill=tk.BOTH, expand=True, pady=5)
@@ -140,18 +137,12 @@ class SettingsWindow(tk.Toplevel):
         self.theme_combo.set(current_theme)
         self.theme_combo.pack(side=tk.LEFT, padx=5)
 
-        self.theme_combo.bind("<<ComboboxSelected>>", self._on_theme_change)
-
         self.user_colors_frame = tk.LabelFrame(frame, text="User Colors", padx=5, pady=5)
 
-        if current_theme == "user":
-            self.user_colors_frame.pack(fill=tk.BOTH, expand=True, pady=5)
-        else:
-            self.user_colors_frame.pack_forget()
+        self.user_colors_frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
         current_user_theme = self.settings.get("appearence.themes.user", {})
 
-        # Исправление #1 и #2: Порядок как в config.py + дружелюбные названия
         color_labels = [
             ("status_rest", "Отдых (текст)"),
             ("status_pause", "Пауза (текст)"),
@@ -195,14 +186,6 @@ class SettingsWindow(tk.Toplevel):
                 row, text="🎨", command=lambda k=key, e=entry: self._pick_color(e), width=3
             )
             btn.pack(side=tk.LEFT)
-
-    def _on_theme_change(self, event):
-        """Показывает/скрывает редактор цветов user темы."""
-        selected = self.theme_combo.get()
-        if selected == "user":
-            self.user_colors_frame.pack(fill=tk.BOTH, expand=True, pady=5)
-        else:
-            self.user_colors_frame.pack_forget()
 
     def _pick_color(self, entry):
         """Открывает выбор цвета."""
@@ -271,10 +254,19 @@ class SettingsWindow(tk.Toplevel):
         self.settings.set_val("timer.current_preset", selected_preset)
 
         try:
-            user_values = [float(e.get()) for e in self.user_entries]
+            user_values = []
+            for i, e in enumerate(self.user_entries):
+                val = float(e.get())
+                if i == 3:  # Cycles - индекс 3
+                    if val < 1:
+                        raise ValueError("Cycles must be at least 1")
+                    user_values.append(int(val))
+                else:
+                    user_values.append(val)
+
             self.settings.set_val("timer.user", user_values)
-        except ValueError:
-            messagebox.showerror("Error", "Please enter valid numbers for User Preset")
+        except ValueError as e:
+            messagebox.showerror("Error", f"Please enter valid numbers for User Preset\n{e}")
             return
 
         selected_theme = self.theme_combo.get()
