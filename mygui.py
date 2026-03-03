@@ -104,6 +104,9 @@ class MyGUI:
         Обработчик изменений настроек.
         Оптимизирует перерисовку, вызывая обновление только нужных частей UI.
         """
+        if key == "system.always_on_top_enabled":
+            self.root.after(100, self._apply_topmost_setting)
+
         if "appearence.themes" in key or "system.quick_settings" in key:
             if self._rebuild_job:
                 self.root.after_cancel(self._rebuild_job)
