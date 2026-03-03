@@ -1,5 +1,6 @@
 .vscode
 .venv
+venv
 .build
 run.bat
 rest.mp3
