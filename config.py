@@ -10,12 +10,6 @@ class SettingsManager:
             "window": {
                 "width": 336,
                 "height": 255,
-                "padxy": 5,
-                "padxy_s": 2,
-                "padxy_ss": 0,
-                "entry_width": 5,
-                "pad_x_status_label": 0,
-                "pad_y_status_label": 0,
             },
             "timer": {
                 "small": [10, 2, 6, 4],
@@ -61,12 +55,6 @@ class SettingsManager:
                     "focus": "▶FOCUS",
                     "rest": "REST",
                 },
-                "quick_settings_minutes_entries_labels": [
-                    "Focus:",
-                    "Short:",
-                    "Long:",
-                    "Cycles:",
-                ],
                 "quick_settings_buttons_labels": {
                     "always_on_top": "Always on Top",
                     "pause_on_end": "Pause on End",
