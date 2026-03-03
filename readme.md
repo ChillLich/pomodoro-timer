@@ -2,11 +2,14 @@
 
 # <p align="center">Simple Pomodoro timer written on Python with Tkinter.</p>
 
+![Python Version](https://img.shields.io/badge/python-3.11-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+
 ## Overview
 
 Simple Pomodoro timer. The timer structures work and break intervals using the Pomodoro method to boost focus and prevent burnout. Flexible settings for intervals, themes, sounds, and system options.
 
-## Feautures
+## Features
 
 - **Timer with phases:** Focus (Work), short rest, long rest, pause.
 - **Cycles:** Automatic counting of sessions until a long rest.
@@ -28,7 +31,7 @@ Simple Pomodoro timer. The timer structures work and break intervals using the P
 
 ## How to install and run
 
-### Automatic installition:
+### Automatic Installation:
 
 1. Install `python3` via official, as I tested on `3.11.9` link to this version:
 
@@ -63,35 +66,41 @@ Subsequent runs will use the existing environment.
 
 **Note:** The system media player controls (the "Manage System Media" feature) may require administrator privileges (on Linux) or the appropriate permissions on macOS.
 
-### Manual installition:
+### Manual Installation:
 
-1. Убедитесь, что установлен Python 3.8 или новее. Проверено на версии 3.11.
-2. Клонируйте репозиторий:
+1. Make sure Python 3.8 or later is installed. Tested with version 3.11.
+2. Clone the repository:
 
 ```bash
-   git clone https://github.com/ChillLich/pomodoro-timer.git
-   cd pomodoro-timer
+git clone https://github.com/ChillLich/pomodoro-timer.git
+cd pomodoro-timer
 ```
 
-3. (Рекомендуется) Создайте и активируйте виртуальное окружение:
+3. (Recommended) Create and activate the virtual environment:
 
 ```bash
 python -m venv venv
-source venv/bin/activate      # Linux/macOS
-venv\Scripts\activate         # Windows
+source venv/bin/activate # Linux/macOS
+venv\Scripts\activate # Windows
 ```
 
-4. Установите зависимости:
+4. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-5. Запустите приложение:
+5. Run the application:
 
 ```bash
 python gui.py
 ```
+
+## ⚙️ Configuration
+
+All settings are stored in the `settings.json` file (created automatically on first launch).
+- **Recommended method:** Changing settings through the built-in GUI (`⚙ Settings` button).
+- **Manual editing:** Not recommended. The file has a complex nested structure, and an error in the JSON syntax may result in resetting settings or startup errors.
 
 ## Troubleshooting
 
@@ -102,7 +111,7 @@ Media player controls aren't working
 This feature uses the `keyboard` library, which may require administrator privileges. Try running the application as an administrator (Windows) or with sudo (Linux). On macOS, you may need additional permissions in the security settings.
 
 Sounds aren't playing
-Check that the file paths in the settings are correct and that the files exist. Also, make sure pygame is installed in virtual environment or on your system and can play the selected format (MP3, WAV, and many others are supported by pygame).
+Check that the file paths in the settings are correct and that the files exist. Also, make sure pygame is installed in virtual environment or on your system and can play the selected format (MP3, WAV, and many others are supported by pygame). Make sure that the work.mp3 and rest.mp3 files are located in the program folder or specify the full paths to them in the settings.
 
 Settings aren't saving
 Check write permissions for the application folder. The `settings.json` file should be created automatically.
