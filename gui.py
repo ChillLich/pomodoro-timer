@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
 
 from config import SettingsManager
 from settings_window import SettingsWindow

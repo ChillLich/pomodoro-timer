@@ -1,5 +1,4 @@
 import tkinter as tk
-from pathlib import Path
 from tkinter import colorchooser, filedialog, messagebox, ttk
 
 
