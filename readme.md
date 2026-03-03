@@ -99,13 +99,14 @@ python gui.py
 ## ⚙️ Configuration
 
 All settings are stored in the `settings.json` file (created automatically on first launch).
+
 - **Recommended method:** Changing settings through the built-in GUI (`⚙ Settings` button).
 - **Manual editing:** Not recommended. The file has a complex nested structure, and an error in the JSON syntax may result in resetting settings or startup errors.
 
 ## Troubleshooting
 
-The application won't start or crashes with an error
-Run main.py from the terminal or command line—you'll see a detailed error output. The most common issue is missing dependencies or an incorrect path to the audio files.
+The application won't start
+Run main.py from the terminal or command line—you'll see a detailed error output. The most common issue is missing dependencies or an incorrect path to the audio files. Therefore try to delete `venv` folder to create new environment.
 
 Media player controls aren't working
 This feature uses the `keyboard` library, which may require administrator privileges. Try running the application as an administrator (Windows) or with sudo (Linux). On macOS, you may need additional permissions in the security settings.
@@ -116,7 +117,7 @@ Check that the file paths in the settings are correct and that the files exist. 
 Settings aren't saving
 Check write permissions for the application folder. The `settings.json` file should be created automatically.
 
-Something broken with settings
-First, close the app, then delete the `settings.json` file.
+Something broken with settings or app crashes with an error
+First, close the app (this is important), then delete the `settings.json` file.
 
 If you find a bug or have a suggestion, feel free to write an issue on GitHub.
