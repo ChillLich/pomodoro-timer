@@ -8,7 +8,6 @@ class Timer:
     def __init__(self, settings_manager):
         self.settings = settings_manager
         self.MINUT = 60
-
         # Состояние таймера
         self.process_status = 4  # 1=rest, 2=work, 3=pause from rest, 4=pause from work
         self.seconds_till_next_phase = 0
@@ -55,7 +54,6 @@ class Timer:
         self.path_to_rest = Path(path_to_rest_str)
 
         # Если пути относительные - преобразуем в абсолютные
-        # (относительно текущей рабочей директории)
         if not self.path_to_work.is_absolute():
             self.path_to_work = self.path_to_work.resolve()
         if not self.path_to_rest.is_absolute():
@@ -85,7 +83,6 @@ class Timer:
             self.process_status = 2
 
         self._handle_audio_api(unpause=True)
-
         self._schedule_tick()
 
     def pause(self):
@@ -114,11 +111,18 @@ class Timer:
         Если необходимо вычесть секунду не сразу, то вызывать self._schedule_tick().
         Однако _schedule_tick не отсчитывает секунды
         """
+        # Если таймер на паузе, не считаем и не планируем следующий тик
+        if self.process_status in (3, 4):
+            return
+
         if self.seconds_till_next_phase > 0:
             self.seconds_till_next_phase -= 1
         else:
             self.step_in_phase()
-        self._schedule_tick()
+
+        # Планируем следующий тик только если не перешли в статус паузы
+        if self.process_status not in (3, 4):
+            self._schedule_tick()
 
     def get_status_info(self):
         """Возвращает информацию о текущем статусе для GUI"""
@@ -157,13 +161,17 @@ class Timer:
 
         self._transition_phase(step_back=step_back)
 
-        # Проверяем настройку pause_on_end_enabled при каждом использовании
-        if self.settings.get("system.pause_on_end_enabled", False):
+        # Pause on End применяется только к автоматическим переходам (не к ручным кнопкам)
+        # schedule_tick=False означает, что вызов произошел автоматически из count_tick
+        if not schedule_tick and self.settings.get("system.pause_on_end_enabled", False):
             self.pause()
 
-        if schedule_tick:
+        # Не планировать тик, если мы сейчас на паузе, проверка дублируется
+        # т.к. этот метод может вызываться независимо
+        if schedule_tick and self.process_status not in (3, 4):
             self._schedule_tick()
-        else:
+        elif not schedule_tick:
+            # Если это был автоматический шаг, обновление GUI все равно нужно
             self._call_update()
 
     def get_timer_values(self):
