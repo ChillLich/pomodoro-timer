@@ -15,7 +15,7 @@ class MyGUI:
         self.timer = Timer(self.settings)
 
         self.root = tk.Tk()
-        self.root.title("Pomodoro Timer")
+        self.root.title("Pomodoro Timer @ChillLich")
 
         self.button_labels = self.settings.get(
             "appearence.quick_settings_buttons_labels",

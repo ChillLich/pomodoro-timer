@@ -1,11 +1,15 @@
 import json
+import sys
 from pathlib import Path
 from typing import Any, Callable, Dict
 
 
 class SettingsManager:
     def __init__(self):
-        self.config_path = Path("settings.json")
+        if getattr(sys, "frozen", False):
+            self.config_path = Path(sys.executable).parent / "settings.json"
+        else:
+            self.config_path = Path("settings.json")
         self.default_settings = {
             "window": {
                 "width": 336,
