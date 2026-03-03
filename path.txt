@@ -1,7 +1,0 @@
-#First path should be to sound when timer-phase goes to REST
-#Second path should be to sound when timer-phase goes to WORK
-#Default path is local to folder with script.
-#So just throw your .mp3's in there with given names
-#Example: C:\Music\Rest.mp3
-Rest.mp3
-Work.mp3
