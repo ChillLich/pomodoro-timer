@@ -18,7 +18,7 @@ class SettingsWindow(tk.Toplevel):
         self.settings = settings_manager
         self.rebuild_callback = rebuild_callback
         self.title("Settings")
-        self.geometry("590x550")
+        self.geometry("640x550")
         self.resizable(True, True)
 
         self.qs_vars = {}
@@ -130,17 +130,25 @@ class SettingsWindow(tk.Toplevel):
 
         tk.Label(theme_frame, text="Theme: ", width=8, anchor=tk.W).pack(side=tk.LEFT)
 
-        themes = ["light", "dark", "user"]
+        themes = self.settings.get_available_themes()
         current_theme = self.settings.get("appearence.themes.current_preset", "dark")
         self.theme_combo = ttk.Combobox(theme_frame, values=themes, state="readonly", width=10)
         self.theme_combo.set(current_theme)
         self.theme_combo.pack(side=tk.LEFT, padx=5)
 
+        self.theme_combo.bind("<<ComboboxSelected>>", self._on_theme_selected)
+
+        add_btn = tk.Button(theme_frame, text="+ Add Theme", command=self._add_new_theme, width=10)
+        add_btn.pack(side=tk.LEFT, padx=5)
+
+        delete_btn = tk.Button(
+            theme_frame, text="🗑 Delete", command=self._delete_current_theme, width=8
+        )
+        delete_btn.pack(side=tk.LEFT, padx=2)
+
         self.user_colors_frame = tk.LabelFrame(frame, text="User Colors", padx=5, pady=5)
 
         self.user_colors_frame.pack(fill=tk.BOTH, expand=True, pady=5)
-
-        current_user_theme = self.settings.get("appearence.themes.user", {})
 
         color_labels = [
             ("status_rest", "Rest (text)"),
@@ -163,21 +171,7 @@ class SettingsWindow(tk.Toplevel):
                 side=tk.LEFT
             )
 
-            default_colors = {
-                "status_rest": "#3BBF77",
-                "status_pause": "#808080",
-                "status_focus": "#3B77BC",
-                "background_top": "#1E1E1E",
-                "background_bot": "#2D2D2D",
-                "button_bg": "#3D3D3D",
-                "button_fg": "#FFFFFF",
-                "button_pressed_bg": "#3B77BC",
-                "button_pressed_fg": "#FFFFFF",
-            }
-            current_color = current_user_theme.get(key, default_colors[key])
-
             entry = tk.Entry(row, width=10)
-            entry.insert(0, current_color)
             entry.pack(side=tk.LEFT, padx=5)
             self.user_theme_vars[key] = entry
 
@@ -185,6 +179,30 @@ class SettingsWindow(tk.Toplevel):
                 row, text="🎨", command=lambda k=key, e=entry: self._pick_color(e), width=3
             )
             btn.pack(side=tk.LEFT)
+
+        self._load_theme_colors_into_ui(current_theme)
+
+    def _load_theme_colors_into_ui(self, theme_name):
+        """Загружает цвета выбранной темы в поля ввода."""
+        current_theme_data = self.settings.get(f"appearence.themes.{theme_name}", {})
+
+        # Если тема не найдена в настройках (например, только что создана в памяти но не сохранена),
+        # пробуем получить текущие активные цвета
+        if not current_theme_data:
+            current_theme_data = self.settings.get_current_theme_colors()
+
+        default_colors = self.settings.get("appearence.themes.dark", {})
+
+        for key, entry in self.user_theme_vars.items():
+            # Берем цвет из выбранной темы, иначе фоллбэк на dark
+            current_color = current_theme_data.get(key, default_colors.get(key, "#000000"))
+            entry.delete(0, tk.END)
+            entry.insert(0, current_color)
+
+    def _on_theme_selected(self, event=None):
+        """Обработчик смены темы в Combobox."""
+        selected_theme = self.theme_combo.get()
+        self._load_theme_colors_into_ui(selected_theme)
 
     def _pick_color(self, entry):
         """Открывает выбор цвета."""
@@ -271,11 +289,11 @@ class SettingsWindow(tk.Toplevel):
         selected_theme = self.theme_combo.get()
         self.settings.set_val("appearence.themes.current_preset", selected_theme)
 
-        if selected_theme == "user":
-            user_theme_colors = {}
-            for key, entry in self.user_theme_vars.items():
-                user_theme_colors[key] = entry.get()
-            self.settings.set_val("appearence.themes.user", user_theme_colors)
+        theme_colors = {}
+        for key, entry in self.user_theme_vars.items():
+            theme_colors[key] = entry.get()
+
+        self.settings.add_theme(selected_theme, theme_colors)
 
         self.settings.set_val("system.path_to_focus_track", self.path_work.get())
         self.settings.set_val("system.path_to_rest_track", self.path_rest.get())
@@ -287,3 +305,80 @@ class SettingsWindow(tk.Toplevel):
         self.settings.save()
         self.rebuild_callback()
         self.destroy()
+
+    def _add_new_theme(self):
+        """Открывает диалог для создания новой темы."""
+        dialog = tk.Toplevel(self)
+        dialog.title("Add New Theme")
+        dialog.geometry("300x150")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        tk.Label(dialog, text="Theme Name:", font=("Helvetica", 10)).pack(pady=10)
+
+        name_entry = tk.Entry(dialog, width=30)
+        name_entry.pack(pady=5)
+        name_entry.focus()
+
+        def create_theme():
+            theme_name = name_entry.get().strip().lower().replace(" ", "_")
+
+            if not theme_name:
+                messagebox.showwarning("Warning", "Theme name cannot be empty")
+                return
+
+            if theme_name in self.settings.get_available_themes():
+                messagebox.showwarning("Warning", f"Theme '{theme_name}' already exists")
+                return
+
+            # Копируем текущую тему как основу
+            current_colors = self.settings.get_current_theme_colors()
+
+            # Добавляем тему в настройки
+            self.settings.add_theme(theme_name, current_colors)
+
+            # Обновляем combobox
+            themes = self.settings.get_available_themes()
+            self.theme_combo.config(values=themes)
+            self.theme_combo.set(theme_name)
+
+            # Обновляем поля с цветами
+            self._load_user_theme_colors(theme_name)
+
+            dialog.destroy()
+            messagebox.showinfo("Success", f"Theme '{theme_name}' created!")
+
+        tk.Button(dialog, text="Create", command=create_theme).pack(pady=10)
+
+    def _delete_current_theme(self):
+        """Удаляет текущую выбранную тему."""
+        current_theme = self.theme_combo.get()
+
+        if current_theme in ["light", "dark"]:
+            messagebox.showwarning("Warning", "Cannot delete built-in themes (light/dark)")
+            return
+
+        confirm = messagebox.askyesno(
+            "Confirm Delete", f"Are you sure you want to delete theme '{current_theme}'?"
+        )
+
+        if confirm:
+            if self.settings.remove_theme(current_theme):
+                # Обновляем combobox
+                themes = self.settings.get_available_themes()
+                self.theme_combo.config(values=themes)
+                self.theme_combo.set(themes[0])  # Выбираем первую доступную
+                messagebox.showinfo("Success", f"Theme '{current_theme}' deleted!")
+            else:
+                messagebox.showerror("Error", "Cannot delete this theme")
+
+    def _load_user_theme_colors(self, theme_name: str):
+        """Загружает цвета выбранной темы в поля ввода."""
+        current_user_theme = self.settings.get(f"appearence.themes.{theme_name}", {})
+
+        default_colors = self.settings.get("appearence.themes.dark", {})
+
+        for key, entry in self.user_theme_vars.items():
+            current_color = current_user_theme.get(key, default_colors[key])
+            entry.delete(0, tk.END)
+            entry.insert(0, current_color)

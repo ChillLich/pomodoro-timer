@@ -44,6 +44,7 @@ class SettingsManager:
                     },
                     "current_preset": "dark",
                 },
+                "available_themes": ["light", "dark"],
                 "fonts": {
                     "status": ["Times", "24", "bold"],
                     "minutes": ["Times", "32", "bold"],
@@ -125,6 +126,8 @@ class SettingsManager:
         keys = key.split(".")
         ref = self.settings
         for k in keys[:-1]:
+            if k not in ref:
+                ref[k] = {}
             ref = ref[k]
         ref[keys[-1]] = value_to_save
 
@@ -145,12 +148,8 @@ class SettingsManager:
         """Установка пресета таймера"""
         if preset_name not in ["small", "medium", "big", "user"]:
             return
-
-        # Если переключаемся на user и переданы значения
         if preset_name == "user" and values:
             self.set_val("timer.user", values)
-
-        # Устанавливаем текущий пресет
         self.set_val("timer.current_preset", preset_name)
         self.save()
 
@@ -165,34 +164,38 @@ class SettingsManager:
         return current_value
 
     # ----------------- НИЖЕ ДЛЯ ГУИ МЕТОДЫ
-    def get_current_theme_colors(self):
+    def get_current_theme_colors(self) -> Dict[str, str]:
         """Получение цветов текущей темы"""
         theme_name = self.get("appearence.themes.current_preset", "dark")
-        theme = self.get(f"appearence.themes.{theme_name}", self.get("appearence.themes.dark"))
+        theme = self.get(f"appearence.themes.{theme_name}", {})
+
+        # Fallbackи на dark тему если текущая не найдена
+        if not theme:
+            theme = self.get("appearence.themes.dark", {})
+        if not theme:
+            theme = self.default_settings["appearence"]["themes"]["dark"]
+        default_dark = self.default_settings["appearence"]["themes"]["dark"]
 
         return {
-            "status_rest": theme.get("status_rest"),
-            "status_pause": theme.get("status_pause"),
-            "status_focus": theme.get("status_focus"),
-            "background_top": theme.get("background_top"),
-            "background_bot": theme.get("background_bot"),
-            "button_bg": theme.get("button_bg"),
-            "button_fg": theme.get("button_fg"),
-            "button_pressed_bg": theme.get("button_pressed_bg"),
-            "button_pressed_fg": theme.get("button_pressed_fg"),
+            "status_rest": theme.get("status_rest", default_dark["status_rest"]),
+            "status_pause": theme.get("status_pause", default_dark["status_pause"]),
+            "status_focus": theme.get("status_focus", default_dark["status_focus"]),
+            "background_top": theme.get("background_top", default_dark["background_top"]),
+            "background_bot": theme.get("background_bot", default_dark["background_bot"]),
+            "button_bg": theme.get("button_bg", default_dark["button_bg"]),
+            "button_fg": theme.get("button_fg", default_dark["button_fg"]),
+            "button_pressed_bg": theme.get("button_pressed_bg", default_dark["button_pressed_bg"]),
+            "button_pressed_fg": theme.get("button_pressed_fg", default_dark["button_pressed_fg"]),
         }
 
-    def get_current_fonts(self):
+    def get_current_fonts(self) -> Dict[str, tuple]:
         """Получение текущих шрифтов"""
         fonts = self.get("appearence.fonts", {})
 
-        # Вспомогательная функция для получения шрифта или значения по умолчанию
         def get_font(key, default):
             value = fonts.get(key, default)
-            # Если значение - пустой список, используем значение по умолчанию
             if isinstance(value, list) and len(value) == 0:
                 value = default
-            # Гарантируем, что возвращается кортеж
             return tuple(value)
 
         return {
@@ -201,3 +204,81 @@ class SettingsManager:
             "buttons": get_font("buttons", ["Helvetica", "10"]),
             "labels": get_font("labels", ["Helvetica", "10"]),
         }
+
+    def get_available_themes(self) -> list:
+        """Возвращает список доступных тем из настроек."""
+        themes = self.get("appearence.available_themes", ["light", "dark"])
+        # Гарантируем что current_preset тема всегда в списке
+        current = self.get("appearence.themes.current_preset", "dark")
+        if current not in themes:
+            themes.append(current)
+        return themes
+
+    def add_theme(self, theme_name: str, theme_colors: dict) -> None:
+        """
+        Добавляет новую тему в настройки.
+
+        Args:
+            theme_name: Название темы (ключ в themes)
+            theme_colors: Словарь с цветами темы
+        """
+        # Гарантируем существование структуры
+        if "appearence" not in self.settings:
+            self.settings["appearence"] = {}
+        if "themes" not in self.settings["appearence"]:
+            self.settings["appearence"]["themes"] = {}
+
+        current_themes = self.settings["appearence"]["themes"]
+
+        current_preset = current_themes.pop("current_preset", "dark")
+
+        # Добавляем/обновляем тему
+        current_themes[theme_name] = theme_colors
+        current_themes["current_preset"] = current_preset
+        self.set_val("appearence.themes", current_themes)
+
+        # Добавляем в список доступных
+        available = self.get("appearence.available_themes", ["light", "dark"])
+        if theme_name not in available:
+            available.append(theme_name)
+            self.set_val("appearence.available_themes", available)
+
+        self.save()
+
+    def remove_theme(self, theme_name: str) -> bool:
+        """Удаляет тему из списка доступных."""
+        available = self.get("appearence.available_themes", ["light", "dark"])
+
+        # Не позволяем удалить последнюю тему
+        if len(available) <= 1:
+            return False
+
+        # Не позволяем удалить текущую активную тему
+        current = self.get("appearence.themes.current_preset", "dark")
+        if theme_name == current:
+            return False
+
+        if theme_name in available:
+            available.remove(theme_name)
+            self.set_val("appearence.available_themes", available)
+            self.save()
+            return True
+        return False
+
+    def set_current_theme(self, theme_name: str) -> bool:
+        """
+        Устанавливает текущую активную тему.
+
+        Args:
+            theme_name: Название темы
+
+        Returns:
+            True если тема существует, False если нет
+        """
+        available = self.get("appearence.available_themes", ["light", "dark"])
+        if theme_name not in available:
+            return False
+
+        self.set_val("appearence.themes.current_preset", theme_name)
+        self.save()
+        return True

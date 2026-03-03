@@ -116,4 +116,7 @@ Check that the file paths in the settings are correct and that the files exist. 
 Settings aren't saving
 Check write permissions for the application folder. The `settings.json` file should be created automatically.
 
+Something broken with settings
+First, close the app, then delete the `settings.json` file.
+
 If you find a bug or have a suggestion, feel free to write an issue on GitHub.
