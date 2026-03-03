@@ -49,9 +49,9 @@ def main():
     # 4. Launch (detach from console)
     print("Launching Pomodoro Timer...")
     if IS_WIN:
-        subprocess.Popen([str(python), "mygui.py"], creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.Popen([str(python), "gui.py"], creationflags=subprocess.CREATE_NO_WINDOW)
     else:
-        subprocess.Popen([str(python), "mygui.py"], start_new_session=True)
+        subprocess.Popen([str(python), "gui.py"], start_new_session=True)
 
     sys.exit(0)
 

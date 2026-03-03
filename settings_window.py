@@ -19,7 +19,7 @@ class SettingsWindow(tk.Toplevel):
         self.settings = settings_manager
         self.rebuild_callback = rebuild_callback
         self.title("Settings")
-        self.geometry("580x550")
+        self.geometry("590x550")
         self.resizable(True, True)
 
         self.qs_vars = {}
@@ -144,15 +144,15 @@ class SettingsWindow(tk.Toplevel):
         current_user_theme = self.settings.get("appearence.themes.user", {})
 
         color_labels = [
-            ("status_rest", "Отдых (текст)"),
-            ("status_pause", "Пауза (текст)"),
-            ("status_focus", "Фокус (текст)"),
-            ("background_top", "Фон верхний"),
-            ("background_bot", "Фон нижний"),
-            ("button_bg", "Кнопки (фон)"),
-            ("button_fg", "Кнопки (текст)"),
-            ("button_pressed_bg", "Кнопки нажатые (фон)"),
-            ("button_pressed_fg", "Кнопки нажатые (текст)"),
+            ("status_rest", "Rest (text)"),
+            ("status_pause", "Pause (text)"),
+            ("status_focus", "Focus (text)"),
+            ("background_top", "Top BG"),
+            ("background_bot", "Bottom BG"),
+            ("button_bg", "Buttons (BG)"),
+            ("button_fg", "Buttons (text)"),
+            ("button_pressed_bg", "Pressed buttons (BG)"),
+            ("button_pressed_fg", "Pressed buttons (text)"),
         ]
 
         self.user_theme_vars = {}
