@@ -2,7 +2,6 @@
 .venv
 venv
 .build
-run.bat
 rest.mp3
 work.mp3
 __pycache__
