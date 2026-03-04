@@ -1,0 +1,351 @@
+import json
+import sys
+from pathlib import Path
+from typing import Any, Callable, Dict
+
+
+class SettingsManager:
+    def __init__(self):
+        if getattr(sys, "frozen", False):
+            self.config_path = Path(sys.executable).parent / "settings.json"
+        else:
+            self.config_path = Path("settings.json")
+        self.default_settings = {
+            "window": {
+                "width": 336,
+                "height": 255,
+            },
+            "timer": {
+                "small": [10, 2, 6, 4],
+                "medium": [25, 5, 15, 4],
+                "big": [45, 9, 27, 4],
+                "user": [],
+                "current_preset": "medium",
+            },
+            "appearence": {
+                "themes": {
+                    "light": {
+                        "status_rest": "#3BBF77",
+                        "status_pause": "#808080",
+                        "status_focus": "#3B77BC",
+                        "background_top": "#FFFFFF",
+                        "background_bot": "#F0F0F0",
+                        "button_bg": "#E0E0E0",
+                        "button_fg": "#000000",
+                        "button_pressed_bg": "#2d2d2d",
+                        "button_pressed_fg": "#FFFFFF",
+                    },
+                    "dark": {
+                        "status_rest": "#004000",
+                        "status_pause": "#424242",
+                        "status_focus": "#003E70",
+                        "background_top": "#121212",
+                        "background_bot": "#1E1E1E",
+                        "button_bg": "#2C2C2C",
+                        "button_fg": "#E0E0E0",
+                        "button_pressed_bg": "#004000",
+                        "button_pressed_fg": "#000000",
+                    },
+                    "monochrome": {
+                        "status_rest": "#2E2E2E",
+                        "status_pause": "#666666",
+                        "status_focus": "#000000",
+                        "background_top": "#FAFAFA",
+                        "background_bot": "#EEEEEE",
+                        "button_bg": "#CCCCCC",
+                        "button_fg": "#000000",
+                        "button_pressed_bg": "#2d2d2d",
+                        "button_pressed_fg": "#FFFFFF",
+                    },
+                    "purple": {
+                        "status_rest": "#7B1FA2",
+                        "status_pause": "#9E9E9E",
+                        "status_focus": "#512DA8",
+                        "background_top": "#F3E5F5",
+                        "background_bot": "#E1BEE7",
+                        "button_bg": "#CE93D8",
+                        "button_fg": "#4A148C",
+                        "button_pressed_bg": "#8E24AA",
+                        "button_pressed_fg": "#FFFFFF",
+                    },
+                    "pastel": {
+                        "status_rest": "#A5D6A7",
+                        "status_pause": "#BDBDBD",
+                        "status_focus": "#90CAF9",
+                        "background_top": "#FFFDE7",
+                        "background_bot": "#F3E5F5",
+                        "button_bg": "#F8BBD0",
+                        "button_fg": "#4A4A4A",
+                        "button_pressed_bg": "#CE93D8",
+                        "button_pressed_fg": "#FFFFFF",
+                    },
+                    "forest": {
+                        "status_rest": "#66BB6A",
+                        "status_pause": "#555555",
+                        "status_focus": "#43A047",
+                        "background_top": "#F1F8E9",
+                        "background_bot": "#DCEDC8",
+                        "button_bg": "#AED581",
+                        "button_fg": "#1B5E20",
+                        "button_pressed_bg": "#2E7D32",
+                        "button_pressed_fg": "#FFFFFF",
+                    },
+                    "dark_forest": {
+                        "status_rest": "#2E7D32",
+                        "status_pause": "#4A4A4A",
+                        "status_focus": "#408080",
+                        "background_top": "#08120A",
+                        "background_bot": "#0F1E11",
+                        "button_bg": "#214E2E",
+                        "button_fg": "#E6F6EC",
+                        "button_pressed_bg": "#08120A",
+                        "button_pressed_fg": "#FFFFFF",
+                    },
+                    "current_preset": "dark",
+                },
+                "available_themes": [
+                    "light",
+                    "dark",
+                    "monochrome",
+                    "purple",
+                    "pastel",
+                    "forest",
+                    "dark_forest",
+                ],
+                "fonts": {
+                    "status": ["Times", "24", "bold"],
+                    "minutes": ["Times", "32", "bold"],
+                    "buttons": ["Helvetica", "10"],
+                    "labels": ["Helvetica", "10"],
+                },
+                "status_title": {
+                    "pause": "⏸PAUSE",
+                    "focus": "▶FOCUS",
+                    "rest": "REST",
+                },
+                "quick_settings_buttons_labels": {
+                    "always_on_top": "Always on Top",
+                    "pause_on_end": "Pause on End",
+                    "sound_player": "♫ Sound",
+                    "media_api": "Media",
+                    "reset_timer": "↺ Reset",
+                    "next_previous_buttons": ["   <<   ", "   >>   "],
+                    "settings": "⚙",
+                    "exit": "Exit",
+                },
+            },
+            "system": {
+                "path_to_focus_track": "work.mp3",
+                "path_to_rest_track": "rest.mp3",
+                "always_on_top_enabled": False,
+                "sound_player_enabled": False,
+                "media_api_enabled": True,
+                "pause_on_end_enabled": False,
+                "quick_settings": {
+                    "always_on_top": False,
+                    "pause_on_end": True,
+                    "sound_player": False,
+                    "media_api": True,
+                },
+            },
+        }
+        self.settings = {}
+        # Callback для уведомления об изменениях настроек
+        self.callbacks = []
+
+    def load(self) -> Dict[str, Any]:
+        """Load settings from file"""
+        try:
+            if self.config_path.exists():
+                with open(self.config_path, "r", encoding="utf-8") as file:
+                    self.settings = json.load(file)
+            else:
+                self.settings = self.default_settings.copy()
+        except (json.JSONDecodeError, IOError) as err:
+            self.settings = self.default_settings.copy()
+            print(f"Settings load error:\n{err}")
+        return self.settings
+
+    def save(self) -> None:
+        """Save settings to settings.json"""
+        try:
+            with open(self.config_path, "w", encoding="utf-8") as file:
+                json.dump(self.settings, file, indent=4, ensure_ascii=False)
+        except IOError as err:
+            print(f"Save settings error:\n{err}")
+        else:
+            print("Settings saved!")
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get value, accept nested keys by dots"""
+        keys = key.split(".")
+        value = self.settings
+        try:
+            for k in keys:
+                value = value[k]
+            return value
+        except (KeyError, TypeError):
+            print(f"ERROR when getting setting {keys}")
+            return default
+
+    def set_val(self, key: str, value_to_save: Any) -> None:
+        """Set value, accept nested keys by dots"""
+        keys = key.split(".")
+        ref = self.settings
+        for k in keys[:-1]:
+            if k not in ref:
+                ref[k] = {}
+            ref = ref[k]
+        ref[keys[-1]] = value_to_save
+
+        # Уведомляем всех подписчиков об изменениях
+        for callback in self.callbacks:
+            callback(key, value_to_save)
+
+    def add_callback(self, callback: Callable) -> None:
+        """Добавление callback для уведомления об изменениях"""
+        self.callbacks.append(callback)
+
+    def remove_callback(self, callback: Callable) -> None:
+        """Удаление callback"""
+        if callback in self.callbacks:
+            self.callbacks.remove(callback)
+
+    def set_timer_preset(self, preset_name: str, values: list | None = None) -> None:
+        """Установка пресета таймера"""
+        if preset_name not in ["small", "medium", "big", "user"]:
+            return
+        if preset_name == "user" and values:
+            self.set_val("timer.user", values)
+        self.set_val("timer.current_preset", preset_name)
+        self.save()
+
+    def toggle_setting(self, setting_key: str) -> bool:
+        """Переключение boolean настройки"""
+        current_value = self.get(setting_key)
+        if isinstance(current_value, bool):
+            new_value = not current_value
+            self.set_val(setting_key, new_value)
+            self.save()
+            return new_value
+        return current_value
+
+    # ----------------- НИЖЕ ДЛЯ ГУИ МЕТОДЫ
+    def get_current_theme_colors(self) -> Dict[str, str]:
+        """Получение цветов текущей темы"""
+        theme_name = self.get("appearence.themes.current_preset", "dark")
+        theme = self.get(f"appearence.themes.{theme_name}", {})
+
+        # Fallbackи на dark тему если текущая не найдена
+        if not theme:
+            theme = self.get("appearence.themes.dark", {})
+        if not theme:
+            theme = self.default_settings["appearence"]["themes"]["dark"]
+        default_dark = self.default_settings["appearence"]["themes"]["dark"]
+
+        return {
+            "status_rest": theme.get("status_rest", default_dark["status_rest"]),
+            "status_pause": theme.get("status_pause", default_dark["status_pause"]),
+            "status_focus": theme.get("status_focus", default_dark["status_focus"]),
+            "background_top": theme.get("background_top", default_dark["background_top"]),
+            "background_bot": theme.get("background_bot", default_dark["background_bot"]),
+            "button_bg": theme.get("button_bg", default_dark["button_bg"]),
+            "button_fg": theme.get("button_fg", default_dark["button_fg"]),
+            "button_pressed_bg": theme.get("button_pressed_bg", default_dark["button_pressed_bg"]),
+            "button_pressed_fg": theme.get("button_pressed_fg", default_dark["button_pressed_fg"]),
+        }
+
+    def get_current_fonts(self) -> Dict[str, tuple]:
+        """Получение текущих шрифтов"""
+        fonts = self.get("appearence.fonts", {})
+
+        def get_font(key, default):
+            value = fonts.get(key, default)
+            if isinstance(value, list) and len(value) == 0:
+                value = default
+            return tuple(value)
+
+        return {
+            "status": get_font("status", ["Times", "24", "bold"]),
+            "minutes": get_font("minutes", ["Times", "32", "bold"]),
+            "buttons": get_font("buttons", ["Helvetica", "10"]),
+            "labels": get_font("labels", ["Helvetica", "10"]),
+        }
+
+    def get_available_themes(self) -> list:
+        """Возвращает список доступных тем из настроек."""
+        themes = self.get("appearence.available_themes", ["light", "dark"])
+        # Гарантируем что current_preset тема всегда в списке
+        current = self.get("appearence.themes.current_preset", "dark")
+        if current not in themes:
+            themes.append(current)
+        return themes
+
+    def add_theme(self, theme_name: str, theme_colors: dict) -> None:
+        """
+        Добавляет новую тему в настройки.
+
+        Args:
+            theme_name: Название темы (ключ в themes)
+            theme_colors: Словарь с цветами темы
+        """
+        # Гарантируем существование структуры
+        if "appearence" not in self.settings:
+            self.settings["appearence"] = {}
+        if "themes" not in self.settings["appearence"]:
+            self.settings["appearence"]["themes"] = {}
+
+        current_themes = self.settings["appearence"]["themes"]
+
+        current_preset = current_themes.pop("current_preset", "dark")
+
+        # Добавляем/обновляем тему
+        current_themes[theme_name] = theme_colors
+        current_themes["current_preset"] = current_preset
+        self.set_val("appearence.themes", current_themes)
+
+        # Добавляем в список доступных
+        available = self.get("appearence.available_themes", ["light", "dark"])
+        if theme_name not in available:
+            available.append(theme_name)
+            self.set_val("appearence.available_themes", available)
+
+        self.save()
+
+    def remove_theme(self, theme_name: str) -> bool:
+        """Удаляет тему из списка доступных."""
+        available = self.get("appearence.available_themes", ["light", "dark"])
+
+        # Не позволяем удалить последнюю тему
+        if len(available) <= 1:
+            return False
+
+        # Не позволяем удалить текущую активную тему
+        current = self.get("appearence.themes.current_preset", "dark")
+        if theme_name == current:
+            return False
+
+        if theme_name in available:
+            available.remove(theme_name)
+            self.set_val("appearence.available_themes", available)
+            self.save()
+            return True
+        return False
+
+    def set_current_theme(self, theme_name: str) -> bool:
+        """
+        Устанавливает текущую активную тему.
+
+        Args:
+            theme_name: Название темы
+
+        Returns:
+            True если тема существует, False если нет
+        """
+        available = self.get("appearence.available_themes", ["light", "dark"])
+        if theme_name not in available:
+            return False
+
+        self.set_val("appearence.themes.current_preset", theme_name)
+        self.save()
+        return True
