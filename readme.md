@@ -5,6 +5,8 @@
 ![Python Version](https://img.shields.io/badge/python-3.11-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
+Русский [README](README_RU.md).
+
 ## Overview
 
 Simple Pomodoro timer. The timer structures work and break intervals using the Pomodoro method to boost focus and prevent burnout. Flexible settings for intervals, themes, sounds, and system options.
@@ -27,7 +29,6 @@ Simple Pomodoro timer. The timer structures work and break intervals using the P
 - Ability to completely mute the sound.
 - **Quick actions:** Toggle some settings directly from the home screen.
 - **Autosave:** All changes are saved to `settings.json` and restored on next launch.
-- **Clean shutdown:** When the app closes, the sound stops and the state is saved.
 
 ## How to install and run
 
@@ -40,66 +41,66 @@ Enjoy!
 
 1. Install `python3` via official, as I tested on `3.11.9` link to this version:
 
-```curl
-https://www.python.org/downloads/release/python-3119/
-```
+    ```curl
+    https://www.python.org/downloads/release/python-3119/
+    ```
 
 2. Download the repository (for example, as a ZIP archive and unzip it, or clone it via Git).
 
-```bash
-git clone https://github.com/ChillLich/pomodoro-timer.git
-```
+    ```bash
+    git clone https://github.com/ChillLich/pomodoro-timer.git
+    ```
 
 3. Navigate to the project folder.
 
 4. Run `main.py` by double click or run via `cmd`/`bash`:
 
-On Windows:
+    - On Windows:
 
-```cmd
-py -3.11 main.py
-```
+        ```cmd
+        py -3.11 main.py
+        ```
 
-On Linux/Mac:
+    - On Linux/Mac:
 
-```bash
-python3.11 main.py
-```
+        ```bash
+        python3.11 main.py
+        ```
 
 The first time you run the script `main.py`, it will automatically create a virtual environment named 'venv' in the project folder and install all necessary dependencies (Pygame, keyboard).
 Subsequent runs will use the existing environment.
 
-**Note:** The system media player controls (the "Manage System Media" feature) may require administrator privileges (on Linux) or the appropriate permissions on macOS.
+> **Note:** The system media player controls (the "Manage System Media" feature) may require administrator privileges (on Linux) or the appropriate permissions on macOS.
 
 ### Manual Installation
 
 1. Make sure Python 3.8 or later is installed. Tested with version 3.11.
 2. Clone the repository:
 
-```bash
-git clone https://github.com/ChillLich/pomodoro-timer.git
-cd pomodoro-timer
-```
+    ```bash
+    git clone https://github.com/ChillLich/pomodoro-timer.git
+    cd pomodoro-timer
+    ```
 
 3. (Recommended) Create and activate the virtual environment:
 
-```bash
-python -m venv venv
-source venv/bin/activate # Linux/macOS
-venv\Scripts\activate # Windows
-```
+    ```bash
+    python -m venv venv
+    source venv/bin/activate # Linux/macOS
+    venv\Scripts\activate # Windows
+    ```
 
 4. Install dependencies:
 
-```bash
-pip install -r requirements.txt
-```
+    ```bash
+    pip install -r requirements.txt
+    ```
 
 5. Run the application:
 
-```bash
-python gui.py
-```
+    ```bash
+    python gui.py
+    ```
 
 ## ⚙️ Configuration
 
