@@ -31,7 +31,11 @@ Simple Pomodoro timer. The timer structures work and break intervals using the P
 
 ## How to install and run
 
-### Automatic Installation:
+### Executable file for Windows
+
+Download .exe from [releases](https://github.com/ChillLich/pomodoro-timer/releases).
+
+### Automatic Installation
 
 1. Install `python3` via official, as I tested on `3.11.9` link to this version:
 
@@ -66,7 +70,7 @@ Subsequent runs will use the existing environment.
 
 **Note:** The system media player controls (the "Manage System Media" feature) may require administrator privileges (on Linux) or the appropriate permissions on macOS.
 
-### Manual Installation:
+### Manual Installation
 
 1. Make sure Python 3.8 or later is installed. Tested with version 3.11.
 2. Clone the repository:

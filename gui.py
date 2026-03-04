@@ -1,4 +1,6 @@
+import sys
 import tkinter as tk
+from pathlib import Path
 
 from config import SettingsManager
 from settings_window import SettingsWindow
@@ -15,7 +17,8 @@ class MyGUI:
         self.timer = Timer(self.settings)
 
         self.root = tk.Tk()
-        self.root.title("Pomodoro Timer @ChillLich")
+        self.root.title("Timer by @CHILLLICH")
+        self.install_icon()
 
         self.button_labels = self.settings.get(
             "appearence.quick_settings_buttons_labels",
@@ -538,6 +541,20 @@ class MyGUI:
                 return
 
         SettingsWindow(self.root, self.settings, self._update_ui_config)
+
+    def install_icon(self):
+        try:
+            if getattr(sys, "frozen", False):
+                if hasattr(sys, "_MEIPASS"):
+                    base_path = Path(sys._MEIPASS)
+                else:
+                    base_path = Path(sys.executable).parent
+            else:
+                base_path = Path(__file__).parent
+            icon_path = base_path / "icons" / "icon.png"
+            self.root.iconphoto(True, tk.PhotoImage(file=str(icon_path)))
+        except Exception as err:
+            print(f"Warning: Could not load application icon: {err}")
 
 
 if __name__ == "__main__":
