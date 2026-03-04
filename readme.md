@@ -34,6 +34,7 @@ Simple Pomodoro timer. The timer structures work and break intervals using the P
 ### Executable file for Windows
 
 Download .exe from [releases](https://github.com/ChillLich/pomodoro-timer/releases).
+Enjoy!
 
 ### Automatic Installation
 
@@ -106,6 +107,8 @@ All settings are stored in the `settings.json` file (created automatically on fi
 
 - **Recommended method:** Changing settings through the built-in GUI (`⚙ Settings` button).
 - **Manual editing:** Not recommended. The file has a complex nested structure, and an error in the JSON syntax may result in resetting settings or startup errors.
+- Fully customizeble, settings screenshot:
+![settings_screenshot](icons/settings.PNG)
 
 ## Troubleshooting
 
