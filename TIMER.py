@@ -19,18 +19,27 @@ class Timer:
         3 — Pause из Rest (остановлен)
         4 — Pause из Focus (остановлен, начальное состояние)
 
-    Управление:
-        start()          — Запустить или возобновить отсчёт
-        pause()          — Приостановить отсчёт
-        reset()          — Сбросить в начальное состояние (Focus, пауза)
-        step_in_phase()  — Переключить фазу вперёд/назад вручную
-        get_status_info()— Получить данные для отображения (время, статус, цикл)
+    Публичный API:
+        start()           — Запустить/возобновить
+        pause()           — Приостановить
+        stop()            — Полная остановка (закрытие приложения)
+        reset()           — Сброс в начальное состояние
+        step_in_phase()   — Переключить фазу вперёд/назад
+        is_running()      — Проверка активности (True если не пауза)
+        get_status_info() — Данные для GUI (время, статус, цикл)
+        set_gui_callbacks() — Регистрация callback-функций
 
-    Интеграция с GUI:
-        1. Создать экземпляр: timer = Timer(settings_manager)
-        2. Зарегистрировать callbacks: timer.set_gui_callbacks(update_cb, tick_cb)
+    Регистрация в GUI:
+        1. Создать экземпляр: self.timer = Timer(settings_manager), передав в него
+        экземпляр SettingsManager класса.
+        2. Зарегистрировать callbacks:
+           self.timer.set_gui_callbacks(
+               update_callback=self.update_timer_display,  # Обновление UI
+               tick_callback=self.schedule_tick            # Планирование тиков
+           )
         3. Вызывать count_tick() каждую секунду через event loop GUI
         4. Обновлять интерфейс по вызову update_callback
+        5. При закрытии: self.timer.stop()  # Очистка ресурсов
 
     Зависимости:
         pygame.mixer — воспроизведение звуковых сигналов
