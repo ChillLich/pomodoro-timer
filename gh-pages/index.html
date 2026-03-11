@@ -160,8 +160,8 @@
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: 30px;
-        max-width: 900px; 
-        margin: 0 auto; 
+        max-width: 900px;
+        margin: 0 auto;
       }
       .card {
         background: var(--bg-card);
@@ -510,6 +510,32 @@ python gui.py</code></pre>
           setTimeout(() => (btn.textContent = "Copy"), 2000);
         });
       }
+
+      async function updateDownloadLink() {
+        const btn = document.querySelector(".btn-primary");
+        const repo = "ChillLich/pomodoro-timer";
+
+        try {
+          const response = await fetch(
+            `https://api.github.com/repos/${repo}/releases/latest`,
+          );
+          const data = await response.json();
+
+          const exeAsset = data.assets.find((asset) =>
+            asset.name.endsWith(".exe"),
+          );
+
+          if (exeAsset) {
+            btn.href = exeAsset.browser_download_url;
+            console.log("Download link updated:", exeAsset.name);
+          }
+        } catch (error) {
+          console.error("Failed to fetch release info:", error);
+          btn.href = `https://github.com/${repo}/releases`;
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", updateDownloadLink);
     </script>
   </body>
 </html>
