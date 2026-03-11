@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pomodoro Timer by @CHILLLICH</title>
+    <meta
+      name="description"
+      content="Простой и гибкий таймер Pomodoro на Python. Повысьте фокус и предотвратите выгорание."
+    />
+    <style>
+      :root {
+        --primary: #3b77bc;
+        --secondary: #3bbf77;
+        --bg-body: #f4f4f9;
+        --bg-card: #ffffff;
+        --text-main: #333333;
+        --text-muted: #666666;
+        --border: #e0e0e0;
+        --code-bg: #2d2d2d;
+        --code-text: #f8f8f2;
+        --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        --radius: 12px;
+        --font-main: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      [data-theme="dark"] {
+        --bg-body: #121212;
+        --bg-card: #1e1e1e;
+        --text-main: #e0e0e0;
+        --text-muted: #a0a0a0;
+        --border: #333333;
+        --shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--font-main);
+        background-color: var(--bg-body);
+        color: var(--text-main);
+        line-height: 1.6;
+        transition:
+          background-color 0.3s,
+          color 0.3s;
+      }
+
+      a {
+        text-decoration: none;
+        color: inherit;
+        transition: 0.2s;
+      }
+      ul {
+        list-style: none;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+
+      header {
+        padding: 20px 0;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-card);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+      .nav-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .logo {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .theme-toggle {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-main);
+        padding: 8px 12px;
+        border-radius: var(--radius);
+        cursor: pointer;
+        font-size: 1rem;
+      }
+      .theme-toggle:hover {
+        background: var(--border);
+      }
+
+      .hero {
+        text-align: center;
+        padding: 80px 20px;
+      }
+      .hero h1 {
+        font-size: 3rem;
+        margin-bottom: 20px;
+        background: linear-gradient(45deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .hero p {
+        font-size: 1.2rem;
+        color: var(--text-muted);
+        max-width: 600px;
+        margin: 0 auto 40px;
+      }
+      .btn-group {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .btn {
+        padding: 12px 24px;
+        border-radius: var(--radius);
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .btn-primary {
+        background: var(--primary);
+        color: white;
+        box-shadow: 0 4px 15px rgba(59, 119, 188, 0.4);
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 119, 188, 0.6);
+      }
+      .btn-secondary {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text-main);
+      }
+      .btn-secondary:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+
+      .features {
+        padding: 60px 0;
+      }
+      .section-title {
+        text-align: center;
+        font-size: 2rem;
+        margin-bottom: 40px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 30px;
+        max-width: 900px; 
+        margin: 0 auto; 
+      }
+      .card {
+        background: var(--bg-card);
+        padding: 30px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        transition: transform 0.2s;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .card:hover {
+        transform: translateY(-5px);
+      }
+      .card h3 {
+        margin-bottom: 10px;
+        color: var(--primary);
+        font-size: 1.25rem;
+      }
+      .card-icon {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+        display: block;
+      }
+      .card p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+      }
+
+      .installation {
+        padding: 60px 0;
+        background: var(--bg-card);
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+      }
+      .tabs {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 30px;
+      }
+      .tab-btn {
+        padding: 10px 20px;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+      .tab-btn.active {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      .tab-content {
+        display: none;
+        background: var(--code-bg);
+        color: var(--code-text);
+        padding: 20px;
+        border-radius: var(--radius);
+        overflow-x: auto;
+        font-family: "Consolas", "Monaco", monospace;
+        position: relative;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .copy-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
+      .copy-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      footer {
+        text-align: center;
+        padding: 40px 0;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+      }
+      .social-links {
+        margin-top: 10px;
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+      }
+      .social-links a:hover {
+        color: var(--primary);
+      }
+
+      @media (max-width: 768px) {
+        .hero h1 {
+          font-size: 2.5rem;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+          max-width: 500px;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .hero h1 {
+          font-size: 2rem;
+        }
+        .hero p {
+          font-size: 1rem;
+        }
+        .btn-group {
+          flex-direction: column;
+        }
+        .btn {
+          width: 100%;
+          justify-content: center;
+        }
+        .nav-wrapper {
+          flex-direction: row;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+        .card {
+          padding: 20px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <div class="container nav-wrapper">
+        <a href="#" class="logo"> <span>🍅</span> Pomodoro Timer </a>
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle Dark Mode"
+        >
+          🌙
+        </button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="container">
+        <h1>Фокус. Работа. Отдых.</h1>
+        <p>
+          Простой и гибкий таймер Pomodoro на Python с Tkinter. Настраиваемые
+          темы, звуки и управление медиа для максимальной продуктивности.
+        </p>
+        <div class="btn-group">
+          <a
+            href="https://github.com/ChillLich/pomodoro-timer/releases"
+            target="_blank"
+            class="btn btn-primary"
+          >
+            ⬇ Скачать для Windows (.exe)
+          </a>
+          <a
+            href="https://github.com/ChillLich/pomodoro-timer"
+            target="_blank"
+            class="btn btn-secondary"
+          >
+            🐙 Исходный код (GitHub)
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="container">
+        <h2 class="section-title">Возможности</h2>
+        <div class="grid">
+          <div class="card">
+            <span class="card-icon">⏱</span>
+            <h3>Умные циклы</h3>
+            <p>
+              Автоматический подсчет сессий до длинного перерыва. Фазы: Focus,
+              Short Rest, Long Rest, Pause.
+            </p>
+          </div>
+          <div class="card">
+            <span class="card-icon">🎨</span>
+            <h3>Темы оформления</h3>
+            <p>
+              Поддержка светлой, темной и пользовательских тем. Настройка
+              цветов фона, кнопок и текста.
+            </p>
+          </div>
+          <div class="card">
+            <span class="card-icon">🎵</span>
+            <h3>Звуки и Медиа</h3>
+            <p>
+              Выбор своих MP3 треков. Управление системным медиаплеером
+              (Play/Pause) через горячие клавиши.
+            </p>
+          </div>
+          <div class="card">
+            <span class="card-icon">⚙️</span>
+            <h3>Гибкие настройки</h3>
+            <p>
+              Пресеты времени (Small, Medium, Big), режим "Поверх всех окон",
+              автосохранение конфигурации.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="installation">
+      <div class="container">
+        <h2 class="section-title">Установка</h2>
+
+        <div class="tabs">
+          <button class="tab-btn active" onclick="openTab('windows')">
+            Windows (.exe)
+          </button>
+          <button class="tab-btn" onclick="openTab('source')">
+            Python (Source)
+          </button>
+        </div>
+
+        <div id="windows" class="tab-content active">
+          <button class="copy-btn" onclick="copyText('win-link')">Copy</button>
+          <div id="win-link">
+            1. Скачайте последний .exe файл со страницы Releases.<br />2.
+            Запустите файл.<br />3. Готово!
+          </div>
+          <p style="margin-top: 10px; color: #aaa; font-size: 0.9em">
+            Ссылка:
+            <a
+              href="https://github.com/ChillLich/pomodoro-timer/releases"
+              style="color: #4da6ff"
+              >github.com/ChillLich/pomodoro-timer/releases</a
+            >
+          </p>
+        </div>
+
+        <div id="source" class="tab-content">
+          <button class="copy-btn" onclick="copyCode('code-block')">
+            Copy
+          </button>
+          <pre id="code-block"><code># 1. Клонируйте репозиторий
+git clone https://github.com/ChillLich/pomodoro-timer.git
+cd pomodoro-timer
+
+# 2. (Рекомендуется) Создайте виртуальное окружение
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
+# 3. Установите зависимости
+pip install -r requirements.txt
+
+# 4. Запустите
+python gui.py</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="container">
+        <p>&copy; Pomodoro Timer by @CHILLLICH. License: MIT</p>
+        <div class="social-links">
+          <a href="https://github.com/ChillLich/pomodoro-timer" target="_blank"
+            >GitHub Repo</a
+          >
+          <a
+            href="https://github.com/ChillLich/pomodoro-timer/issues"
+            target="_blank"
+            >Issues</a
+          >
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      // --- Theme Toggle ---
+      const themeToggle = document.getElementById("themeToggle");
+      const htmlElement = document.documentElement;
+
+      // Check local storage or system preference
+      const savedTheme = localStorage.getItem("theme");
+      const systemDark = window.matchMedia(
+        "(prefers-color-scheme: dark)",
+      ).matches;
+
+      if (savedTheme === "dark" || (!savedTheme && systemDark)) {
+        htmlElement.setAttribute("data-theme", "dark");
+        themeToggle.textContent = "☀️";
+      }
+
+      themeToggle.addEventListener("click", () => {
+        if (htmlElement.getAttribute("data-theme") === "dark") {
+          htmlElement.setAttribute("data-theme", "light");
+          themeToggle.textContent = "🌙";
+          localStorage.setItem("theme", "light");
+        } else {
+          htmlElement.setAttribute("data-theme", "dark");
+          themeToggle.textContent = "☀️";
+          localStorage.setItem("theme", "dark");
+        }
+      });
+
+      // --- Tabs Logic ---
+      function openTab(tabName) {
+        // Hide all contents
+        document.querySelectorAll(".tab-content").forEach((content) => {
+          content.classList.remove("active");
+        });
+        // Deactivate all buttons
+        document.querySelectorAll(".tab-btn").forEach((btn) => {
+          btn.classList.remove("active");
+        });
+        // Show specific content
+        document.getElementById(tabName).classList.add("active");
+        // Activate specific button
+        event.currentTarget.classList.add("active");
+      }
+
+      // --- Copy to Clipboard ---
+      function copyText(elementId) {
+        const text = document.getElementById(elementId).innerText;
+        navigator.clipboard.writeText(text).then(() => {
+          alert("Ссылка скопирована!");
+        });
+      }
+
+      function copyCode(elementId) {
+        const code = document.getElementById(elementId).innerText;
+        navigator.clipboard.writeText(code).then(() => {
+          const btn = document.querySelector("#source .copy-btn");
+          btn.textContent = "Copied!";
+          setTimeout(() => (btn.textContent = "Copy"), 2000);
+        });
+      }
+    </script>
+  </body>
+</html>
