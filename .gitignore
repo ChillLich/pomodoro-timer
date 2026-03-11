@@ -1,9 +1,6 @@
 **
 !.gitignore
-!gh-pages
-!gh-pages/**
-
-
+!index.html
 
 .vscode
 .venv
