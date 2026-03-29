@@ -1,6 +1,8 @@
 **
 !.gitignore
 !index.html
+!images
+!images/*
 
 .vscode
 .venv
